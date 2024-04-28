@@ -1,9 +1,11 @@
 
-# Project Description
+# Description & Features
 
 This project aims at exploring and fully conprehensing some basic deeplearning > thoughts and methods. It is written based on numpy, without relying on deep learning framworks that supports auto-gradient, i.e. Pytorch, Tensorflow.
 
 Common functions are contained in directory MyDL which is imported as a package in the three .ipynb files in the root directory. The package realizes: common tensor calculation(add, substract, element-wise multiplication, matrix multiplication, square, exponential, logarith, etc.), construction of computational graph with BP auto-gradient, necessary layers in the MLP task, CE loss function, etc.
+
+The usage of the package is very similar to Pytorch. By combining different layers you can build different kinds of networks. And implementing **loss.backward()** assigns gradient to tensors, which are instances of class **MyDL.MyTensor**. Note that FC layer is all we have now, but it should be easy to add other kinds of nets to the package as gradient is calculated **automatically**.
 
 ***
 
