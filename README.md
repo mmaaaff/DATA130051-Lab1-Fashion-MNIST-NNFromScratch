@@ -11,7 +11,7 @@ Common functions are contained in directory MyDL which is imported as a package 
 
 This project requires numpy and matplotlib. Execute following command to install these packages:
 
-```python
+```cmd
 pip install numpy matplotlib
 ```
 
