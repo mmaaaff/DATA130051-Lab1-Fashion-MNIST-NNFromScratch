@@ -1,3 +1,4 @@
+from MyDL.tensor import *
 import numpy as np
 
 class Dataset():
@@ -13,6 +14,8 @@ class Dataset():
     
 
 def Dataloader(dataset, batch_size, shuffle=True):
+    if isinstance(dataset, MyTensor):
+        raise(TypeError("Dataset must be an instance of MyDL.data.Dataset instead of MyDL.tensor.MyTensor."))
     n = len(dataset)
     indices = np.arange(n)
     if shuffle:

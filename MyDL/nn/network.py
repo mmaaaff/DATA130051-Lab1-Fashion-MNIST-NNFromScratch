@@ -26,7 +26,7 @@ class NeuralNetwork:
         else:
             path = filename
         param_list = [param.data for param in self.params]
-        np.savez(path, *param_list)
+        np.savez(path, *[param.data for param in self.params])
 
     def load(self, path):
         with np.load(path) as weights:

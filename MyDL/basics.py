@@ -71,6 +71,19 @@ def train(model, criterion, optimizer, train_data, val_data, num_epochs=10,
     return train_loss, val_loss, train_acc, val_acc, continued_train
 
 
+def test(model, test_data, batch_size=256):
+    model.eval()
+    correct = 0
+    test_loader = Dataloader(test_data, batch_size, shuffle=False)
+    for X_batch, y_batch in test_loader:
+        output = model(X_batch)
+        y_pred = output.data.argmax(axis=1)
+        correct += (y_pred == y_batch.data).sum()
+    acc = correct / len(test_data)
+    print(f"Test Accuracy: {acc:.3f}")
+    return acc
+
+
 def save_loss(train_loss, val_loss, train_acc, val_acc, model_name, continued_train='false', path='results'):
     if not os.path.exists(path):
         os.makedirs(path)
