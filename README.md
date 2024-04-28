@@ -7,7 +7,7 @@ Common functions are contained in directory MyDL which is imported as a package 
 
 ***
 
-# Dependencies
+# Requirements
 
 This project requires numpy and matplotlib. Execute following command to install these packages:
 
