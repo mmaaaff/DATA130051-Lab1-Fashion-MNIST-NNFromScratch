@@ -1,16 +1,15 @@
-# <center>DATA130051 Project1</center>
+<h1 align="center">DATA130051 Project1</h1>
 
-<center>周语诠</center>
-<center>2024-4-30</center>
+<div align="center">周语诠</div>
+<div align="center">2024-4-30</div>
 
 ## Contents
 
-- [DATA130051 Project1](#data130051-project1)
-  - [Contents](#contents)
-  - [Description \& Features](#description--features)
-  - [Requirements](#requirements)
-  - [Classification on Fshion-MNIST](#classification-on-fshion-mnist)
-  - [Utilizing MyDL](#utilizing-mydl)
+- [Contents](#contents)
+- [Description \& Features](#description--features)
+- [Requirements](#requirements)
+- [Classification on Fshion-MNIST](#classification-on-fshion-mnist)
+- [Utilizing MyDL](#utilizing-mydl)
 
 ***
 
