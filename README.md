@@ -8,7 +8,7 @@
 - [Contents](#contents)
 - [Description \& Features](#description--features)
 - [Requirements](#requirements)
-- [Classification on Fshion-MNIST](#classification-on-fshion-mnist)
+- [Classification on Fashion-MNIST](#classification-on-fashion-mnist)
 - [Utilizing MyDL](#utilizing-mydl)
 
 ***
@@ -33,7 +33,7 @@ pip install numpy matplotlib
 
 ***
 
-## Classification on Fshion-MNIST
+## Classification on Fashion-MNIST
 
 1. **Hyperparameter searching**
 
