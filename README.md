@@ -1,12 +1,19 @@
-# Contentens
+# <center>DATA130051 Project1</center>
 
-- [Contentens](#contentens)
+<center>周语诠</center>
+<center>2024-4-30</center>
+
+## Contents
+
+- [DATA130051 Project1](#data130051-project1)
+  - [Contents](#contents)
   - [Description \& Features](#description--features)
   - [Requirements](#requirements)
   - [Classification on Fshion-MNIST](#classification-on-fshion-mnist)
   - [Utilizing MyDL](#utilizing-mydl)
 
 ***
+
 ## Description & Features
 
 This project aims at exploring and fully conprehensing some basic deeplearning thoughts and methods. It is written based on numpy, without relying on deep learning frameworks that supports auto-gradient, i.e. Pytorch, Tensorflow.
