@@ -53,19 +53,20 @@ def train(model, criterion, optimizer, train_data, val_data, num_epochs=10,
         epoch_val_loss = 0.0
         correct = 0.0
         val_loader = Dataloader(val_data, batch_size, shuffle=False)
-        model.eval()
-        for X_batch, y_batch in val_loader:
-            output = model(X_batch)
-            loss = criterion(output, y_batch)
-            y_pred = output.data.argmax(axis=1)
-            correct += (y_pred == y_batch.data).sum()
-            epoch_val_loss += loss.data * len(X_batch)
-        epoch_val_loss /= len(val_data)
-        acc = correct / len(val_data)
-        val_loss.append(epoch_val_loss)
-        val_acc.append(acc)
-        spaces = len(f'Epoch {epoch + 1}/{num_epochs}.') * ' '
-        print(f"{spaces} Validation Loss: {epoch_val_loss:.3f} \t Accuracy: {acc:.3f}")
+        if val_data is not None:
+            model.eval()
+            for X_batch, y_batch in val_loader:
+                output = model(X_batch)
+                loss = criterion(output, y_batch)
+                y_pred = output.data.argmax(axis=1)
+                correct += (y_pred == y_batch.data).sum()
+                epoch_val_loss += loss.data * len(X_batch)
+            epoch_val_loss /= len(val_data)
+            acc = correct / len(val_data)
+            val_loss.append(epoch_val_loss)
+            val_acc.append(acc)
+            spaces = len(f'Epoch {epoch + 1}/{num_epochs}.') * ' '
+            print(f"{spaces} Validation Loss: {epoch_val_loss:.3f} \t Accuracy: {acc:.3f}")
     model.save(filename=f'{model_name}.npz', path=path)
     print('\n')
     return train_loss, val_loss, train_acc, val_acc, continued_train
@@ -80,11 +81,10 @@ def test(model, test_data, batch_size=256):
         y_pred = output.data.argmax(axis=1)
         correct += (y_pred == y_batch.data).sum()
     acc = correct / len(test_data)
-    print(f"Test Accuracy: {acc:.3f}")
     return acc
 
 
-def save_loss(train_loss, val_loss, train_acc, val_acc, model_name, continued_train='false', path='results'):
+def save_result(train_loss, val_loss, train_acc, val_acc, model_name, continued_train='false', path='results'):
     if not os.path.exists(path):
         os.makedirs(path)
     filename = f'{model_name}.npz'
@@ -100,3 +100,14 @@ def save_loss(train_loss, val_loss, train_acc, val_acc, model_name, continued_tr
         train_acc_arr = np.concatenate((prev_results['train_acc'], train_acc_arr))
         val_acc_arr = np.concatenate((prev_results['val_acc'], val_acc_arr))
     np.savez(path, train_loss=train_loss_arr, val_loss=val_loss_arr, train_acc=train_acc_arr, val_acc=val_acc_arr)
+
+
+def load_result(model_name, path='results'):
+    filename = f'{model_name}.npz'
+    path = os.path.join(path, filename)
+    with np.load(path) as results:
+        train_loss = results['train_loss']
+        val_loss = results['val_loss']
+        train_acc = results['train_acc']
+        val_acc = results['val_acc']
+    return train_loss, val_loss, train_acc, val_acc
