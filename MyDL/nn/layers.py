@@ -86,18 +86,51 @@ class Softmax():
 
 class BatchNorm1d():
     def __init__(self):
-        self.params = []
+        self.u_all = []  # Record the mean of each batch
+        self.var_all = []  # Record the variance of each batch
+        self.mean = MyTensor(0., requires_grad=False)
+        self.variance = MyTensor(0., requires_grad=False)
+        self.num_sample_passed = 0
+        self.training = True
+        self.eps = 1e-8
+        self.params = [self.mean, self.variance]
     def forward(self, x):
-        eps = 1e-5
+        '''
+        In this section, we distinguish between training and testing.
+        While training, we use batch normalization and record the mean and variance of each batch.
+        While testing, we apply total variance formula to calculate overall variance. Mean is calculated by taking mean of all record of u_all.
+        '''
         if x.shape[0] == None:
             raise ValueError("Cannot perform BatchNorm transformation on scalar tensor")
         elif len(x.shape) == 1:
             x = x.up_dim()
-        u = x.sum(axis=0) * (1 / x.shape[0])
-        u = u[0]
-        var = ((x - u).square().sum(axis=0) * (1 / x.shape[0]))[0]
-        x = (x - u) * ((var + eps).sqrt().inv())
+        if self.training:  # During training, use batch normalization and record the mean and variance of each batch
+            u = x.sum(axis=0) * (1 / x.shape[0])
+            u = u[0]
+            var = ((x - u).square().sum(axis=0) * (1 / x.shape[0]))[0]
+            x = (x - u) * ((var + self.eps).sqrt().inv())
+            u_data = u.data
+            self.u_all.append(u_data)
+            self.var_all.append(var.data)
+            self.num_sample_passed += x.shape[1]
+        else:
+            x = (x - self.mean) * ((self.variance + self.eps).sqrt().inv())
         return x
+    def eval(self):
+        self.training = False
+        u_all = np.array(self.u_all)
+        var_all = np.array(self.var_all)
+        u_variance = u_all.var(axis=0)
+        var_mean = var_all.mean(axis=0)
+        var_total = var_mean + u_variance
+        u_total = u_all.mean(axis=0)
+        self.variance.data = var_total
+        self.mean.data = u_total
+        pass
+    def train(self):
+        self.training = True
+        self.variance.requires_grad = False
+        self.mean.requires_grad = False
     def __call__(self, x):
         return self.forward(x)
 

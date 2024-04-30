@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import MyDL
+import MyDL.nn as nn
 
 class NeuralNetwork:
     def __init__(self):
@@ -13,10 +14,21 @@ class NeuralNetwork:
     def train(self):
         for param in self.params:
             param.requires_grad = True
+        attributes = dir(self)
+        for attr in attributes:
+            if not attr.startswith('__') and not attr.endswith('__'):
+                value = getattr(self, attr)
+                if isinstance(value, nn.BatchNorm1d):
+                    value.train()
 
     def eval(self):
         for param in self.params:
             param.requires_grad = False
+        attributes = dir(self)
+        for attr in attributes:
+            if not attr.startswith('__') and not attr.endswith('__'):
+                if isinstance(getattr(self, attr), nn.BatchNorm1d):
+                    getattr(self, attr).eval()
 
     def save(self, filename, path=None):
         if path:
@@ -25,7 +37,7 @@ class NeuralNetwork:
             path = os.path.join(path, filename)
         else:
             path = filename
-        param_list = [param.data for param in self.params]
+        self.eval()
         np.savez(path, *[param.data for param in self.params])
 
     def load(self, path):

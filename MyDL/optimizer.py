@@ -22,7 +22,8 @@ class Adam():
         v_hat = [v / (1 - self.beta2**self.t) for v in self.v]
         update = [-lr * m / (np.sqrt(v + self.eps)) for m, v in zip(m_hat, v_hat)]
         for param, up in zip(self.params, update):
-            param.data += up
+            if param.requires_grad:
+                param.data += up
     def zero_grad(self):
         for param in self.params:
             param.grad = np.zeros_like(param.data)
