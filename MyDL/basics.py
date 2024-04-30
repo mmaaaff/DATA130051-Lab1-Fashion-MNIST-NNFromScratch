@@ -107,7 +107,6 @@ def save_result(train_loss_iter, train_acc_iter, train_loss_epoch, val_loss_epoc
         no_missing_val_loss_iter = True
     else:
         no_missing_val_loss_iter = False
-    # np.savez(**{'file': path, 'train_loss_iter': train_loss_iter, 'val_loss_iter': val_loss_iter, 'train_acc_iter': train_acc_iter, 'val_acc_iter': val_acc_iter, 'train_loss_epoch': train_loss_epoch, 'val_loss_epoch': val_loss_epoch, 'train_acc_epoch': train_acc_epoch, 'val_acc_epoch': val_acc_epoch, 'batch_size_till_iter': batch_size_arr, 'no_missing_val_loss_iter': no_missing_val_loss_iter, 'model_name': model_name, 'continued_train': continued_train})
     np.savez(path, train_loss_iter=train_loss_iter, val_loss_iter=val_loss_iter, train_acc_iter=train_acc_iter, val_acc_iter=val_acc_iter, train_loss_epoch=train_loss_epoch, val_loss_epoch=val_loss_epoch, train_acc_epoch=train_acc_epoch, val_acc_epoch=val_acc_epoch, batch_size_till_iter=batch_size_arr, no_missing_val_loss_iter=no_missing_val_loss_iter, model_name=model_name, continued_train=continued_train)
 
 
