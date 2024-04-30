@@ -15,7 +15,7 @@
 
 ## Description & Features
 
-This project aims at exploring and fully conprehensing some basic deeplearning thoughts and methods. It is written based on numpy, without relying on deep learning frameworks that supports auto-gradient, i.e. Pytorch, Tensorflow.
+This project aims at exploring and fully conprehending some basic deeplearning thoughts and methods. It is written based on numpy, without relying on deep learning frameworks that supports auto-gradient, i.e. Pytorch, Tensorflow.
 
 Common functions are contained in directory MyDL which is imported as a package in the three .ipynb files in the root directory. The package realizes: common tensor calculation, construction of computational graph with BP auto-gradient, necessary layers in the MLP task, CE loss function, etc.
 
@@ -58,7 +58,7 @@ pip install numpy matplotlib
 
 ## Utilizing MyDL
 
-If you want to explore the package furthur and build something else, here is a brief instruction. In general it is similar to Pytorch.
+If you want to explore the package further and build something else, here is a brief instruction. In general it is similar to Pytorch.
 
 - Creating **MyTensor** objects:
   
