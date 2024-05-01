@@ -66,8 +66,9 @@ def train(model, criterion, optimizer, train_data, val_data, num_epochs=10,
     return result
 
 
-def test(model, test_data, criterion, batch_size=256):
-    model.eval()
+def test(model, test_data, criterion, batch_size=256, load_and_eval=False):
+    if not load_and_eval:
+        model.eval()
     correct = 0
     loss = 0.0
     test_loader = Dataloader(test_data, batch_size, shuffle=False)
