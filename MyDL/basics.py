@@ -7,20 +7,24 @@ def train(model, criterion, optimizer, train_data, val_data, num_epochs=10,
            continue_if_exists=False, calc_val_loss_every_iteration=False):
     model_name = 'MLP3_({},{})_{}_L2-{}_lr-{}'.format(model.hidden_size1, model.hidden_size2, model.activ_func, lambda_L2, optimizer.lr)
     continued_train = False
+
+    # Check whether model exsists
     if os.path.exists(f'{model_path}/{model_name}.npz'):
         print(f"Model already exists. Loading model...")
         model.load(f'{model_path}/{model_name}.npz')
-        if not continue_if_exists:
-            print(f"Model loaded successfully.")
-        else:
+        if continue_if_exists:
             print(f"Model loaded successfully. Training will be continued.")
+        else:
+            print(f"Model loaded successfully.")
         continued_train = True
+
     if continued_train and not continue_if_exists:
         print('Model is not going to be trained further as continue_if_exists is set to False.\n')
         result = np.load(f'{result_path}/{model_name}.npz', allow_pickle=True)
         result = {key: result[key] for key in result}
         result['continued_train'] = continued_train
         return result
+    
     train_loss_iter, val_loss_iter, train_acc_iter, val_acc_iter = [], [], [], []
     train_loss_epoch, val_loss_epoch, train_acc_epoch, val_acc_epoch = [], [], [], []
     for epoch in range(num_epochs):

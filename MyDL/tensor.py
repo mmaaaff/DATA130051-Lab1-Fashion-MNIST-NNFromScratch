@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Union, Tuple
 
 class MyTensor:
     def __init__(self, data, requires_grad=True, grad_fn=None):
@@ -59,8 +60,11 @@ class MyTensor:
                     if isinstance(C2, MyTensor):
                         if not C1.shape[0] or C1.shape == (1, ):  # If C1 is scalar, sum the gradient
                             accume = accume.sum()
-                        elif len(C1.shape) == 1 and len(C2.shape) == 2:  # If C1 is a vector and C2 is a matrix
-                            accume = np.sum(accume, axis=0, keepdims=False)
+                        elif len(C1.shape) < len(C2.shape):  # If dimension of C1 is less than C2
+                            accume = np.sum(accume, axis=tuple(range(0, len(C2.shape) - len(C1.shape))), keepdims=False)
+                        if C1.shape != C2.shape:
+                            flat_dims = [i for i in range(len(C1.shape)) if C1.shape[i] == 1]
+                            accume = np.sum(accume, axis=tuple(flat_dims), keepdims=True)
                     if len(C1.children) == 0:  # If C1 is a leaf node
                         C1.grad += accume
                     else:
@@ -70,14 +74,18 @@ class MyTensor:
                     accume = grad * local
                     if not C2.shape[0] or C2.shape == (1, ):
                         accume = accume.sum()
-                    elif len(C2.shape) == 1 and len(C1.shape) == 2:
-                        accume = np.sum(accume, axis=0, keepdims=False)
+                    elif len(C2.shape) < len(C1.shape):
+                        accume = np.sum(accume, axis=tuple(range(0, len(C1.shape) - len(C2.shape))), keepdims=False)
+                    if C1.shape != C2.shape:
+                            flat_dims = [i for i in range(len(C2.shape)) if C2.shape[i] == 1]
+                            accume = np.sum(accume, axis=tuple(flat_dims), keepdims=True)
                     if len(C2.children) == 0:
                         C2.grad += accume
                     else:
                         C2.grad = accume
             result.add_grad_fn(add_grad_fn_backward)
         return result
+    
     # Treat tensor (right) adding
     def __radd__(self, other):  # Same as __add__ but for right addition
         return self.__add__(self, other)
@@ -91,11 +99,11 @@ class MyTensor:
             def neg_grad_fn_backward(self):
                 grad = self.grad
                 local = -1
-                accum = local * grad
+                accume = local * grad
                 if len(self.children[0].children) == 0:
-                    self.children[0].grad += accum
+                    self.children[0].grad += accume
                 else:
-                    self.children[0].grad = accum
+                    self.children[0].grad = accume
             result.add_grad_fn(neg_grad_fn_backward)
         return result
     
@@ -108,11 +116,11 @@ class MyTensor:
             def pos_grad_fn_backward(self):
                 grad = self.grad
                 local = np.sign(self.children[0].data)
-                accum = local * grad
+                accume = local * grad
                 if len(self.children[0].children) == 0:
-                    self.children[0].grad += accum
+                    self.children[0].grad += accume
                 else:
-                    self.children[0].grad = accum
+                    self.children[0].grad = accume
             result.add_grad_fn(pos_grad_fn_backward)
         return result
     
@@ -281,14 +289,14 @@ class MyTensor:
             result.add_grad_fn(item_grad_fn_backward)
         return result
 
-    def up_dim(self):  # Increase the dimension of the tensor by one
-        result_data = np.expand_dims(self.data, axis=0)
+    def up_dim(self, axis:Union[int, tuple]=0):  # Increase the dimension of the tensor by one
+        result_data = np.expand_dims(self.data, axis=axis)
         requires_grad = self.requires_grad
         result = MyTensor(result_data, requires_grad=requires_grad)
         if requires_grad:
             result.children = [self]
             def up_dim_grad_fn_backward(self):
-                grad = self.grad[0]
+                grad = np.squeeze(self.grad, axis=axis)
                 local = np.ones_like(self.children[0].data)
                 accume = grad * local
                 if len(self.children[0].children) == 0:

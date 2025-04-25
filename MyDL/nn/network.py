@@ -17,9 +17,8 @@ class NeuralNetwork:
         attributes = dir(self)
         for attr in attributes:
             if not attr.startswith('__') and not attr.endswith('__'):
-                value = getattr(self, attr)
-                if isinstance(value, nn.BatchNorm1d):
-                    value.train()
+                if isinstance(getattr(self, attr), nn.BatchNorm1d):
+                    getattr(self, attr).train()
 
     def eval(self):
         for param in self.params:

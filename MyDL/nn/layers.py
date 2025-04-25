@@ -1,4 +1,6 @@
 from ..tensor import *
+from typing import Union, Tuple
+from numpy.lib.stride_tricks import as_strided
 
 class Linear():
     def __init__(self, in_features, out_features, initialize='random'):
@@ -56,7 +58,197 @@ class Tanh():
         return x_new
     def __call__(self, x):
         return self.forward(x)
+    
 
+class conv2D():
+    """
+    2D convolution
+    """
+    def __init__(self, in_channels:   int,
+                       out_channels:  int,
+                       kernel_size:   Union[int, Tuple[int, int]],
+                       stride:        Union[int, Tuple[int, int]],
+                       padding:       Union[int, Tuple[int, int, int, int]],  # size of 0-padding
+                       bias:          bool
+                ):
+        self.c_in = in_channels
+        self.c_out = out_channels
+        self.kernel_size = kernel_size if isinstance(kernel_size, tuple) else (kernel_size, kernel_size)
+        self.stride = stride if isinstance(stride, tuple) else (stride , stride)
+        self.padding = padding if isinstance(padding, tuple) else (padding, padding, padding, padding)
+        
+        self.training = True
+
+        # Using Kaiming initialization
+        fan_in = in_channels * self.kernel_size[0] * self.kernel_size[1]
+        self.kernel = MyTensor(np.sqrt(1 / fan_in) * 2 * (np.random.rand(out_channels, in_channels, self.kernel_size[0], self.kernel_size[1]) - 0.5))
+        if bias:
+            self.biased = True
+            self.bias = MyTensor(np.sqrt(1 / fan_in) * 2 * (np.random.rand(out_channels) - 0.5))
+        else:
+            self.biased = False
+
+        self.params = [self.kernel, self.bias]
+
+    def forward(self, x:MyTensor):
+        # convert x to shape b * c_in * h * w
+        single_img = False
+        if len(x.shape) == 3:
+            single_img = True
+            if x.shape[0] == self.c_in:
+                x = x.up_dim(axis=0)
+            else:
+                raise ValueError(f"Input channel of conv2D is incorrect! Input channle should be {self.c_in} but got input x in shape of {x.shape}")
+        elif len(x.shape) != 4:
+            raise ValueError(f"Input of conv2D is illegal. Require bchw or chw, but got input x in shape {x.shape}")
+        
+        # Calculate the value of output
+        x_out_data = self.conv2d_multi_channel(x.data, self.kernel.data, padding=self.padding, stride=self.stride)
+        if single_img:
+            x_out_data = x_out_data[0]
+
+        # Create output tensor and properly put it into the computational graph and deliver the gradient
+        x_out = MyTensor(x_out_data, requires_grad=self.training)
+        if self.training:  # requires gradient
+            x_out.children = [x, self.kernel]
+            def conv_grad_fn_backward(x_out:MyTensor):  # gradient delivering of conv operation
+                """
+                We calculate using the following rule:
+                Let B = pad(A) stride_conv K, then:
+                grad(A) = inverse_pad(stride(grad(B))) conv rot180(K_io_channel_inverse);
+                grad(K) = pad(A) conv stride(grad(B))
+                It's hard to handle the channel and batch when computing grad(K)
+                """
+                # Calculate the size if stride=1
+                C1, C2 = x_out.children[0], x_out.children[1]
+                b, c_in, H, W = C1.shape
+                c_out, _, kH, kW = C2.shape  
+                H_out_no_stride = H + self.padding[0] + self.padding[1] - kH + 1
+                W_out_no_stride = W + self.padding[2] + self.padding[3] - kW + 1
+
+                # Compute stride(grad(B))
+                x_out_stride = np.zeros((b, c_out, H_out_no_stride, W_out_no_stride))
+                x_out_stride[:, :, ::self.stride[0], ::self.stride[1]] = x_out.grad
+                # Compute inverse_pad(stride(grad(B)))
+                x_out_stride_invpad = np.pad(x_out_stride, ((0, 0), 
+                                                            (0, 0), 
+                                                            (self.padding[1], self.padding[0]),
+                                                            (self.padding[3], self.padding[2])),
+                                                            mode='constant')
+                # Compute pad(A)
+                x_pad = np.pad(C1.data, ((0, 0), (0, 0),
+                                                   (self.padding[0], self.padding[1]),
+                                                   (self.padding[2], self.padding[3])),
+                                                   mode='constant')
+                # Compute rot180(K_io_channel_inverse)
+                K_rot180_ioc_inverse = np.rot90(np.swapaxes(C2.data, 0, 1), k=2, axes=(2,3))
+                # Compute gradient
+                x_grad_local = self.conv2d_multi_channel(x_out_stride_invpad, K_rot180_ioc_inverse)
+                kernel_grad_local = self.conv2d_multi_channel(np.expand_dims(x_pad, axis=2), np.expand_dims(x_out_stride, axis=2), extra_dim=True)
+                kernel_grad_local = np.sum(np.swapaxes(kernel_grad_local, 1, 2), axis=0)
+                
+                # Accumulate gradient
+                C1.grad += x_grad_local
+                C2.grad += kernel_grad_local
+            x_out.add_grad_fn(conv_grad_fn_backward)
+        
+        if self.biased:
+            x_out = x_out + self.bias.up_dim(axis=(0,2,3))
+        return x_out
+    
+    def __call__(self, x):
+        return self.forward(x)
+
+    @staticmethod
+    def conv2d_multi_channel(X, K, padding:Union[int, Tuple[int, int, int, int]]=0, 
+                         stride:Union[int, Tuple[int, int]]=1, extra_dim=False):
+        """
+        2D-conv.
+        Args:
+            X: Input image (batch, C_in, H, W)
+            K: Convolutional kernel (C_out, C_in, kH, kW)
+            padding: Size of padding (up, down, left, right)
+            stride: Marching stride of kernel while convoluting
+            extra_dim: For special cases, X is in size of (B, batch, C_in, H, W), 
+                       and kernel is (B, C_out, C_in, kH, kW)). 
+                       This happens when calculating gradient, and needs proper handling
+        Returns:
+            Y: Output featuremap (C_out, H_out, W_out)
+        """
+        if extra_dim == False:
+            batch, C_in, H, W = X.shape
+            C_out, C_in_k, kH, kW = K.shape
+            assert C_in == C_in_k, "Input channel of x equals that of the kernel"
+
+            # padding each dim
+            if isinstance(padding, int):
+                X_padded = np.pad(X, ((0, 0), (0, 0), (padding, padding), (padding, padding)), mode='constant')
+            else:
+                X_padded = np.pad(X, ((0, 0), (0, 0), (padding[0], padding[1]), (padding[2], padding[3])), mode='constant')
+            
+            if isinstance(stride, int):
+                stride = (stride, stride)
+
+            H_p, W_p = X_padded.shape[2], X_padded.shape[3]
+
+            H_out = (H_p - kH) // stride[0] + 1
+            W_out = (W_p - kW) // stride[1] + 1
+
+            # Unfolded X. The original single element is now a convolutional area
+            strides = X_padded.strides
+            new_shape = (batch, C_in, H_out, W_out, kH, kW)
+            new_strides = (
+                strides[0],
+                strides[1],
+                strides[2] * stride[0],
+                strides[3] * stride[1],
+                strides[2],
+                strides[3]
+            )
+            X_strided = as_strided(X_padded, shape=new_shape, strides=new_strides)
+
+            # K: (C_out, C_in, kH, kW), X: (batch, C_in, H_out, W_out, kH, kW)
+            # use einsum for efficient sum
+            Y = np.einsum('oimn,bihwmn->bohw', K, X_strided)
+        
+        else:
+            B, batch, C_in, H, W = X.shape
+            B, C_out, C_in_k, kH, kW = K.shape
+            assert C_in == C_in_k, "Input channel of x equals that of the kernel"
+
+            # padding each dim
+            if isinstance(padding, int):
+                X_padded = np.pad(X, ((0, 0), (0, 0), (0, 0), (padding, padding), (padding, padding)), mode='constant')
+            else:
+                X_padded = np.pad(X, ((0, 0), (0, 0), (0, 0), (padding[0], padding[1]), (padding[2], padding[3])), mode='constant')
+            
+            if isinstance(stride, int):
+                stride = (stride, stride)
+
+            H_p, W_p = X_padded.shape[3], X_padded.shape[4]
+
+            H_out = (H_p - kH) // stride[0] + 1
+            W_out = (W_p - kW) // stride[1] + 1
+
+            # Unfolded X. The original single element is now a convolutional area
+            strides = X_padded.strides
+            new_shape = (B, batch, C_in, H_out, W_out, kH, kW)
+            new_strides = (
+                strides[0],  # B
+                strides[1],  # batch
+                strides[2],  # C
+                strides[3] * stride[0],  # H
+                strides[4] * stride[1],  # W
+                strides[3],  # H
+                strides[4]  # W
+            )
+            X_strided = as_strided(X_padded, shape=new_shape, strides=new_strides)
+
+            # K: (B, C_out, C_in, kH, kW), X: (B, batch, C_in, H_out, W_out, kH, kW)
+            # use einsum for efficient sum
+            Y = np.einsum('Boimn,Bbihwmn->Bbohw', K, X_strided)
+
+        return Y
         
 
 
