@@ -3,8 +3,11 @@
 <div align="center">周语诠</div>
 <div align="center">2024-4-30</div>
 
-## Contents
+# NEWS : Latest Updates Available at Branch 2025spring
 
+# Contents
+
+- [NEWS : Latest Updates Available at Branch 2025spring](#news--latest-updates-available-at-branch-2025spring)
 - [Contents](#contents)
 - [Description \& Features](#description--features)
 - [Requirements](#requirements)
@@ -13,7 +16,7 @@
 
 ***
 
-## Description & Features
+# Description & Features
 
 This project aims at exploring and fully conprehending some basic deeplearning thoughts and methods. It is written based on numpy, without relying on deep learning frameworks that supports auto-gradient, i.e. Pytorch, Tensorflow.
 
@@ -23,7 +26,7 @@ The usage of the package is very similar to Pytorch. By combining different laye
 
 ***
 
-## Requirements
+# Requirements
 
 This project requires numpy and matplotlib. Execute following command to install these packages:
 
@@ -33,7 +36,7 @@ pip install numpy matplotlib
 
 ***
 
-## Classification on Fashion-MNIST
+# Classification on Fashion-MNIST
 
 1. **Hyperparameter searching**
 
@@ -56,7 +59,7 @@ pip install numpy matplotlib
 
 ***
 
-## Utilizing MyDL
+# Utilizing MyDL
 
 If you want to explore the package further and build something else, here is a brief instruction. In general it is similar to Pytorch.
 
