@@ -15,21 +15,23 @@
 
 ## Description & Features
 
-This project aims at exploring and fully conprehending some basic deeplearning thoughts and methods. It is written based on numpy, without relying on deep learning frameworks that supports auto-gradient, i.e. Pytorch, Tensorflow.
+This project aims at exploring and fully conprehending some basic deeplearning thoughts and methods. It is written based on numpy, without relying on deep learning frameworks that supports auto-gradient, e.g., Pytorch, Tensorflow.
 
-Common functions are contained in directory MyDL which is imported as a package in the three .ipynb files in the root directory. The package realizes: common tensor calculation, construction of computational graph with BP auto-gradient, necessary layers in the MLP task, CE loss function, etc.
+Common functions are contained in directory MyDL which is imported as a package in the three .ipynb files in the root directory. The package realizes: common tensor calculation, construction of computational graph with BP auto-gradient, necessary layers in image classification(MLP and Conv2D), CE loss function, etc.
 
-The usage of the package is very similar to Pytorch. By combining different layers you can build different kinds of networks. And implementing **backward()** on loss assigns gradient to tensors, which are instances of class **MyDL.MyTensor**. Note that FC layer is all we have now, but it should be easy to add other kinds of nets to the package.
+The usage of the package is almost same to Pytorch.You can easily migrate network struture from Pytorch to MyDL, only needing to change several layer names. Executing **backward()** on loss assigns gradient to tensors, which are instances of class **MyDL.MyTensor**.
 
 ***
 
 ## Requirements
 
-This project requires numpy and matplotlib. Execute following command to install these packages:
+This project requires cupy and matplotlib. Execute following command to install cupy:
 
 ```cmd
-pip install numpy matplotlib
+pip install cupy-cuda12x
 ```
+
+The version should be based on you CUDA version. For CUDAToolkit installation, please refer to the official website <a href="https://developer.nvidia.com/cuda-toolkit">https://developer.nvidia.com/cuda-toolkit</a>
 
 ***
 
@@ -85,7 +87,6 @@ If you want to explore the package further and build something else, here is a b
     def __init__(self, input_size, output_size):
         super.__init__(self)
         self.fc = nn.Linear(input_size, output_size, initialize='random')  # FC layer
-        self.params += self.fc.params  # You have to add params to the network manually
         self.softmax = nn.Softmax()  # Softmax layer
     def forward(self, x):
         x = self.fc(x)  # call the layer
