@@ -2,15 +2,22 @@ import os
 import MyDL
 from MyDL.data import *
 
-def train(model, criterion, optimizer, train_data, val_data, num_epochs=10,
-           batch_size=256, lambda_L2=0.001, model_path='model_params', result_path='results',
+def np_get(arr):
+    if isinstance(arr, cp.ndarray):
+        return arr.get()
+
+def train(model, criterion, optimizer, 
+          train_data, val_data, num_epochs=10,
+           batch_size=256, lambda_L2=0.001, 
+           model_path='model_params', model_name=None, result_path='results',
            continue_if_exists=False, calc_val_loss_every_iteration=False):
-    model_name = 'MLP3_({},{})_{}_L2-{}_lr-{}'.format(model.hidden_size1, model.hidden_size2, model.activ_func, lambda_L2, optimizer.lr)
+    if model_name is None:
+        model_name = 'MLP3_({},{})_{}_L2-{}_lr-{}'.format(model.hidden_size1, model.hidden_size2, model.activ_func, lambda_L2, optimizer.lr)
     continued_train = False
 
     # Check whether model exsists
     if os.path.exists(f'{model_path}/{model_name}.npz'):
-        print(f"Model already exists. Loading model...")
+        print(f"Model already exists. Loading model from {model_path}/{model_name}.npz...")
         model.load(f'{model_path}/{model_name}.npz')
         if continue_if_exists:
             print(f"Model loaded successfully. Training will be continued.")
@@ -54,6 +61,8 @@ def train(model, criterion, optimizer, train_data, val_data, num_epochs=10,
                 val_loss, val_acc = test(model, val_data, criterion, 4 * batch_size)  # Larger batch size for validation as it doesn't require backpropagation. Boosts speed.
                 val_loss_iter.append(val_loss)
                 val_acc_iter.append(val_acc)
+            if (i + 1) % 50 == 0:
+                print(f"iter {i}\t loss {loss}")
         epoch_training_loss /= len(train_data)
         epoch_training_acc = correct / len(train_data)
         train_loss_epoch.append(epoch_training_loss)

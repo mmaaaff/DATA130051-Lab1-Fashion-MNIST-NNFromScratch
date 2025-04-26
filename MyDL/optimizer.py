@@ -1,5 +1,5 @@
 from .tensor import *
-import numpy as np
+import cupy as np
 
 class Adam():
     def __init__(self, params, lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8, decay_rate=0.2):
@@ -8,8 +8,8 @@ class Adam():
         self.beta1 = beta1
         self.beta2 = beta2
         self.eps = eps
-        self.m = [np.zeros_like(param).astype(float) for param in params]
-        self.v = [np.zeros_like(param).astype(float) for param in params]
+        self.m = [np.zeros_like(np.array(param.data)).astype(float) for param in params]
+        self.v = [np.zeros_like(np.array(param.data)).astype(float) for param in params]
         self.t = 0
         self.decay_rate = decay_rate
     def step(self):
@@ -26,4 +26,4 @@ class Adam():
                 param.data += up
     def zero_grad(self):
         for param in self.params:
-            param.grad = np.zeros_like(param.data)
+            param.grad = np.zeros_like(np.array(param.data))

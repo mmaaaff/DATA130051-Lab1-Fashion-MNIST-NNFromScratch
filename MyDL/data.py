@@ -1,5 +1,5 @@
 from MyDL.tensor import *
-import numpy as np
+import cupy as np
 
 class Dataset():
     def __init__(self, X, y):

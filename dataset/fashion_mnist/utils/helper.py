@@ -45,7 +45,7 @@ def upload_result_s3():
 
 
 def create_sprite_image(images):
-    import numpy as np
+    import cupy as np
     """Returns a sprite image consisting of images passed as argument. Images should be count x width x height"""
     if isinstance(images, list):
         images = np.array(images)
@@ -67,7 +67,7 @@ def create_sprite_image(images):
 
 
 def vector_to_matrix_mnist(mnist_digits):
-    import numpy as np
+    import cupy as np
     """Reshapes normal mnist digit (batch,28*28) to matrix (batch,28,28)"""
     return np.reshape(mnist_digits, (-1, 28, 28))
 

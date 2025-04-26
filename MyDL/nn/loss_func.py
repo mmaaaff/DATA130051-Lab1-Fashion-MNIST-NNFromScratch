@@ -1,5 +1,5 @@
 from ..tensor import *
-import numpy as np
+import cupy as np
 
 def one_hot_encode(labels, num_classes):  # Note that this function always generates a 2D array
     if not isinstance(labels, MyTensor):

@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-import numpy as np
+import cupy as np
 import tensorflow as tf
 from tensorflow.contrib.tensorboard.plugins import projector
 

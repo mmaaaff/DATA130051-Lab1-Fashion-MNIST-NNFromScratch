@@ -1,7 +1,7 @@
 def load_mnist(path, kind='train'):
     import os
     import gzip
-    import numpy as np
+    import cupy as np
 
     """Load MNIST data from `path`"""
     labels_path = os.path.join(path,

@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as np
 from typing import Union, Tuple
 
 class MyTensor:
@@ -16,22 +16,39 @@ class MyTensor:
             self.shape = data.shape
         self.data = data
         self.requires_grad = requires_grad
-        self.grad = np.zeros_like(data) if requires_grad else None  # Gradient of the output with respect to this tensor
+        self.grad = np.zeros_like(np.array(data)) if requires_grad else None  # Gradient of the output with respect to this tensor
         self.grad_fn = grad_fn
         self.children = []  # Upstream nodes
 
-    def backward(self, grad=None, start_point=True):  # start_point is used to determine whether the point is the end of a computation graph
+    def backward(self, grad=None, start_point=True):
         if not self.requires_grad:
             raise RuntimeError("Cannot compute gradient on tensor that does not require grad")
-        # if self.shape[0] and start_point:
-        #     raise RuntimeError("Grad can only be created for scalar outputs")
         if start_point:
-            self.grad = np.ones_like(self.data)
-        if self.grad_fn and len(self.children) > 0:
-            self.grad_fn(self)
-            for child in self.children:  # DFS
-                if isinstance(child, MyTensor) and child.requires_grad:
-                    child.backward(grad, start_point=False)
+            self.grad = np.ones_like(np.array(self.data))
+
+        topo_order = []
+        visited = set()
+        self.build_topo(visited, topo_order)
+
+        # print([node.shape for node in topo_order])
+
+        for node in reversed(topo_order):
+            if node.grad_fn:
+                node.grad_fn(node)
+
+    def build_topo(self, visited, topo_order):
+        """Build the topological order of the computation graph"""
+        if self in visited:
+            return
+        visited.add(self)
+        for child in self.children:
+            if isinstance(child, MyTensor):
+                child.build_topo(visited, topo_order)
+        topo_order.append(self)
+
+
+    def detatch(self):  # Detach the tensor from the computation graph
+        return MyTensor(self.data.copy(), requires_grad=False)
 
         
     # This function is used to add a gradient calculation function to the tensor
@@ -55,22 +72,19 @@ class MyTensor:
                 C1 = self.children[0]
                 C2 = self.children[1]
                 if C1.requires_grad:
-                    local = np.ones_like(C1.data)
+                    local = np.ones_like(np.array(C1.data))
                     accume = grad * local
                     if isinstance(C2, MyTensor):
                         if not C1.shape[0] or C1.shape == (1, ):  # If C1 is scalar, sum the gradient
                             accume = accume.sum()
                         elif len(C1.shape) < len(C2.shape):  # If dimension of C1 is less than C2
                             accume = np.sum(accume, axis=tuple(range(0, len(C2.shape) - len(C1.shape))), keepdims=False)
-                        if C1.shape != C2.shape:
+                        if C1.shape != C2.shape:  # Exist flat dim, grad should be summed on these dim because of the broadcast rule of numpy in sum
                             flat_dims = [i for i in range(len(C1.shape)) if C1.shape[i] == 1]
                             accume = np.sum(accume, axis=tuple(flat_dims), keepdims=True)
-                    if len(C1.children) == 0:  # If C1 is a leaf node
-                        C1.grad += accume
-                    else:
-                        C1.grad = accume
+                    C1.grad += accume
                 if (hasattr(C2, 'requires_grad')) and C2.requires_grad:
-                    local = np.ones_like(C2.data)
+                    local = np.ones_like(np.array(C2.data))
                     accume = grad * local
                     if not C2.shape[0] or C2.shape == (1, ):
                         accume = accume.sum()
@@ -79,10 +93,7 @@ class MyTensor:
                     if C1.shape != C2.shape:
                             flat_dims = [i for i in range(len(C2.shape)) if C2.shape[i] == 1]
                             accume = np.sum(accume, axis=tuple(flat_dims), keepdims=True)
-                    if len(C2.children) == 0:
-                        C2.grad += accume
-                    else:
-                        C2.grad = accume
+                    C2.grad += accume
             result.add_grad_fn(add_grad_fn_backward)
         return result
     
@@ -100,10 +111,7 @@ class MyTensor:
                 grad = self.grad
                 local = -1
                 accume = local * grad
-                if len(self.children[0].children) == 0:
-                    self.children[0].grad += accume
-                else:
-                    self.children[0].grad = accume
+                self.children[0].grad += accume
             result.add_grad_fn(neg_grad_fn_backward)
         return result
     
@@ -117,10 +125,7 @@ class MyTensor:
                 grad = self.grad
                 local = np.sign(self.children[0].data)
                 accume = local * grad
-                if len(self.children[0].children) == 0:
-                    self.children[0].grad += accume
-                else:
-                    self.children[0].grad = accume
+                self.children[0].grad += accume
             result.add_grad_fn(pos_grad_fn_backward)
         return result
     
@@ -137,8 +142,8 @@ class MyTensor:
         self_neg = self.neg()
         return self_neg.__add__(other)
 
-    def __mul__(self, other):  # Multiplication with scalar
-        # The other operand must be a scalar tensor of size (1, ) or (None, ) or a number or a row vector or a column vector
+    def __mul__(self, other):  # Element Multiplication with scalar or tensor
+        # The other operand must be a tensor of size (1, ) or (None, ) or a number
         if isinstance(other, (int, float, np.int8, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64)):
             result_data = self.data * other
         elif isinstance(other, MyTensor):
@@ -156,28 +161,27 @@ class MyTensor:
                 if C1.requires_grad:
                     if isinstance(C2, (int, float, np.int8, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64)):
                         multiplier = C2
-                    elif isinstance(other, MyTensor):
-                        multiplier = other.data
+                    elif isinstance(C2, MyTensor):
+                        multiplier = C2.data
                     local = multiplier
                     accume = grad * local
-                    if len(C1.children) == 0:
-                        C1.grad += accume
-                    else:
-                        C1.grad = accume
+                    if isinstance(C2, MyTensor):
+                        if len(C1.shape) < len(C2.shape):
+                            accume = np.sum(accume, axis=tuple(range(len(C2.shape) - len(C1.shape))), keepdims=False)
+                    flat_dims = [i for i in range(len(C1.shape)) if C1.shape[i] == 1]
+                    accume = np.sum(accume, axis=tuple(flat_dims), keepdims=True)
+                    C1.grad += accume
                 if (hasattr(C2, 'requires_grad')) and C2.requires_grad:
                     local = C1.data
-                    if C2.shape[0]:
-                        accume = np.sum(grad * local, axis=len(C2.shape) - 1, keepdims=True)
-                    else:  # C2 is a tensor of size (None, )
+                    accume = self.grad * local
+                    if not C2.shape[0]:
                         accume = np.sum(grad * local)
-                    if C2.shape == (1, ):  # If the shape is scalar of size(1, ), sum the gradient
-                        accume = accume.sum(keepdims=False).reshape(C2.shape)
-                    elif len(C2.shape) == 1 and C2.shape[0]:  # C2 is a vector
-                        accume = accume.reshape(C2.shape)  # This is beacause of using keepdims=True in above. Here we reduce the dimension.
-                    if len(C2.children) == 0:
-                        C2.grad += accume
                     else:
-                        C2.grad = accume
+                        if len(C2.shape) < len(C1.shape):
+                            accume = np.sum(accume, axis=tuple(range(len(C1.shape) - len(C2.shape))), keepdims=False)
+                        flat_dims += [i for i in range(len(C2.shape)) if C2.shape[i] == 1]
+                        accume = np.sum(accume, axis=tuple(flat_dims), keepdims=True)
+                    C2.grad += accume
             result.add_grad_fn(mul_grad_fn_backward)
         return result
     
@@ -193,7 +197,7 @@ class MyTensor:
             def getitem_grad_fn_backward(self):
                 grad = self.grad
                 C1 = self.children[0]
-                local = np.zeros_like(C1.data)
+                local = np.zeros_like(np.array(C1.data))
                 local[index] = grad
                 if len(C1.children) == 0:
                     C1.grad += local
@@ -215,26 +219,21 @@ class MyTensor:
                 grad = self.grad
                 local = -1 / (self.children[0].data ** 2)
                 accume = local * grad
-                if len(self.children[0].children) == 0:
-                    self.children[0].grad += accume
-                else:
-                    self.children[0].grad = accume
+                self.children[0].grad += accume
             result.add_grad_fn(inv_grad_fn_backward)
         return result   
 
     # Treat tensor summation(only consider vector summation, because the task does not require matrix summation)
-    def sum(self, axis=None):  # Note that this functions do not reshape the tensor
+    def sum(self, axis:Union[int, tuple]=None):  
+        # Note that this functions do not reshape the tensor
         result = MyTensor(np.sum(self.data, axis=axis, keepdims=True), requires_grad=self.requires_grad)
         if self.requires_grad:
             result.children = [self]
             def sum_grad_fn_backward(self):
                 grad = self.grad
-                local = np.ones_like(self.children[0].data)
+                local = np.ones_like(np.array(self.children[0].data))
                 accume = local * grad
-                if len(self.children[0].children) == 0:
-                    self.children[0].grad += accume
-                else:
-                    self.children[0].grad = accume
+                self.children[0].grad += accume
             result.add_grad_fn(sum_grad_fn_backward)
         return result
     
@@ -249,10 +248,7 @@ class MyTensor:
                 grad = self.grad
                 local = 2 * self.children[0].data
                 accume = grad * local
-                if len(self.children[0].children) == 0:
-                    self.children[0].grad += accume
-                else:
-                    self.children[0].grad = accume
+                self.children[0].grad += accume
             result.add_grad_fn(square_grad_fn_backward)
         return result
     
@@ -266,16 +262,14 @@ class MyTensor:
                 grad = self.grad
                 local = 0.5 / np.sqrt(self.children[0].data)
                 accume = grad * local
-                if len(self.children[0].children) == 0:
-                    self.children[0].grad += accume
-                else:
-                    self.children[0].grad = accume
+                self.children[0].grad += accume
             result.add_grad_fn(sqrt_grad_fn_backward)
         return result
 
     def item(self):  # Reduce the tensor to a 0-dim tensor scalar
-        if self.shape != (1, ) and self.shape != (1, 1) and self.shape != (None,):
-            raise ValueError("The tensor is not a scalar")
+        flat_dim = [i for i in range(len(self.shape)) if self.shape[i] == 1 or self.shape[i] is None]
+        if len(flat_dim) < len(self.shape):
+            raise ValueError(f"The tensor is not a scalar, shape is {self.shape}")
         requires_grad = self.requires_grad
         result = MyTensor(self.data.item(), requires_grad=requires_grad)
         if requires_grad:
@@ -289,7 +283,21 @@ class MyTensor:
             result.add_grad_fn(item_grad_fn_backward)
         return result
 
-    def up_dim(self, axis:Union[int, tuple]=0):  # Increase the dimension of the tensor by one
+    def lower_dim(self, axis:Union[int, tuple]=None): # Lower the dimension of the tensor by one
+        result_data = np.squeeze(self.data, axis=axis)
+        requires_grad = self.requires_grad
+        result = MyTensor(result_data, requires_grad=requires_grad)
+        if requires_grad:
+            result.children = [self]
+            def lower_dim_grad_fn_backward(self):
+                grad = np.expand_dims(self.grad, axis=axis)
+                local = np.ones_like(np.array(self.children[0].data))
+                accume = grad * local
+                self.children[0].grad += accume
+            result.add_grad_fn(lower_dim_grad_fn_backward)
+        return result
+
+    def up_dim(self, axis:Union[int, tuple]=0):  # Increase the dimension of the tensor
         result_data = np.expand_dims(self.data, axis=axis)
         requires_grad = self.requires_grad
         result = MyTensor(result_data, requires_grad=requires_grad)
@@ -297,12 +305,9 @@ class MyTensor:
             result.children = [self]
             def up_dim_grad_fn_backward(self):
                 grad = np.squeeze(self.grad, axis=axis)
-                local = np.ones_like(self.children[0].data)
+                local = np.ones_likenp.array((self.children[0].data))
                 accume = grad * local
-                if len(self.children[0].children) == 0:
-                    self.children[0].grad += accume
-                else:
-                    self.children[0].grad = accume
+                self.children[0].grad += accume
             result.add_grad_fn(up_dim_grad_fn_backward)
         return result
                 
