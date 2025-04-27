@@ -2,11 +2,40 @@ from ..tensor import *
 from typing import Union, Tuple
 from cupy.lib.stride_tricks import as_strided
 import time
+import abc
 
 from MyDL import utils
 
-class Linear():
+
+class Layer(abc.ABC):
+    def __init__(self):
+        self.params = []
+        self.training = True
+
+    @abc.abstractmethod
+    def forward(self, x):
+        pass
+
+    def train(self):
+        self.training = True
+        for param in self.params:
+            param.requires_grad = True
+
+    def eval(self):
+        self.training = False
+        for param in self.params:
+            param.requires_grad = False
+
+    def __call__(self, x):
+        return self.forward(x)
+    
+    def __repr__(self):
+        return f"{self.__class__.__name__}()"
+
+
+class Linear(Layer):
     def __init__(self, in_features, out_features, initialize='random'):
+        super().__init__()
         if initialize == 'random':
             self.weights = MyTensor(np.random.randn(in_features, out_features), requires_grad=True)
             self.bias = MyTensor(np.random.randn(out_features), requires_grad=True)
@@ -21,12 +50,11 @@ class Linear():
         elif len(x.shape) == 1:
             x = x.up_dim()
         return matmul(x, self.weights) + self.bias
-    def __call__(self, x):
-        return self.forward(x)
 
 
-class ReLU():
+class ReLU(Layer):
     def __init__(self):
+        super().__init__()
         self.params = []
     
     @staticmethod
@@ -42,12 +70,11 @@ class ReLU():
                 self.children[0].grad += grad * local
             x_new.add_grad_fn(relu_grad_fn_backward)
         return x_new
-    def __call__(self, x):
-        return self.forward(x)
     
 
-class Tanh():
+class Tanh(Layer):
     def __init__(self):
+        super().__init__()
         self.params = []
 
     @staticmethod
@@ -63,11 +90,9 @@ class Tanh():
                 self.children[0].grad += grad * local
             x_new.add_grad_fn(tanh_grad_fn_backward)
         return x_new
-    def __call__(self, x):
-        return self.forward(x)
     
 
-class Conv2D():
+class Conv2D(Layer):
     """
     2D convolution
     """
@@ -78,6 +103,7 @@ class Conv2D():
                        padding:       Union[int, Tuple[int, int, int, int]],  # size of 0-padding
                        bias:          bool
                 ):
+        super().__init__()
         self.c_in = in_channels
         self.c_out = out_channels
         self.kernel_size = kernel_size if isinstance(kernel_size, tuple) else (kernel_size, kernel_size)
@@ -173,9 +199,6 @@ class Conv2D():
         if self.biased:
             x_out = x_out + self.bias.up_dim(axis=(0,2,3))
         return x_out
-    
-    def __call__(self, x):
-        return self.forward(x)
 
     @staticmethod
     def conv2d_multi_channel(X, K, padding:Union[int, Tuple[int, int, int, int]]=0, 
@@ -269,8 +292,9 @@ class Conv2D():
         return Y, X_strided
         
 
-class FullAveragePool2d():
+class FullAveragePool2d(Layer):
     def __init__(self):
+        super().__init__()
         self.params = []
 
     @staticmethod
@@ -278,13 +302,11 @@ class FullAveragePool2d():
         assert len(x.shape) == 4, f"Require x in dim 4, but got x.shape = {x.shape}"
         x = x.sum(axis=(2, 3)).lower_dim(axis=(2, 3)) * (1 / (x.shape[2] * x.shape[3]))
         return x
-    
-    def __call__(self, x):
-        return self.forward(x)
 
 
-class Softmax():
+class Softmax(Layer):
     def __init__(self):
+        super().__init__()
         self.params = []
 
     @staticmethod
@@ -305,16 +327,15 @@ class Softmax():
             sum_exp_x = sum_exp_x[0]
         result = exp_x * sum_exp_x.inv()
         return result
-    def __call__(self, x, dim=-1):
-        return self.forward(x, dim)
 
 
-class BatchNorm1d():
-    def __init__(self):
+class BatchNorm1d(Layer):
+    def __init__(self, length):
+        super().__init__()
         self.u_all = []  # Record the mean of each batch
         self.var_all = []  # Record the variance of each batch
-        self.mean = MyTensor(0., requires_grad=False)
-        self.variance = MyTensor(0., requires_grad=False)
+        self.mean = MyTensor(np.zeros(length), requires_grad=False)
+        self.variance = MyTensor(np.zeros(length), requires_grad=False)
         self.num_sample_passed = 0
         self.training = True
         self.eps = 1e-8
@@ -357,15 +378,14 @@ class BatchNorm1d():
         self.training = True
         self.variance.requires_grad = False
         self.mean.requires_grad = False
-    def __call__(self, x):
-        return self.forward(x)
     
-class BatchNorm2d():
+class BatchNorm2d(Layer):
     def __init__(self, channel):
+        super().__init__()
         self.u_all = []  # Record the mean of each batch
         self.var_all = []  # Record the variance of each batch
-        self.mean = MyTensor(0.5 * np.ones((1, channel, 1, 1)), requires_grad=False)
-        self.variance = MyTensor(np.ones((1, channel, 1, 1)), requires_grad=False)
+        self.mean = MyTensor(np.zeros((1, channel, 1, 1)), requires_grad=False)
+        self.variance = MyTensor(np.zeros((1, channel, 1, 1)), requires_grad=False)
         self.num_sample_passed = 0  # ?
         self.training = True
         self.eps = 1e-8
@@ -399,11 +419,21 @@ class BatchNorm2d():
         self.mean.requires_grad = False
     def train(self):
         self.training = True
-    def __call__(self, x):
-        return self.forward(x)
-
 
 class Dropout():
-    pass
+    def __init__(self, p:float=0.5):
+        super().__init__()
+        self.p = p
 
+    def forward(self, x:MyTensor):
+        if self.training:
+            mask = np.random.rand(*x.shape) > self.p
+            x.data *= mask / (1 - self.p)
+            x.grad *= mask / (1 - self.p)
+        return x
 
+    def train(self):
+        self.training = True
+
+    def eval(self):
+        self.training = False

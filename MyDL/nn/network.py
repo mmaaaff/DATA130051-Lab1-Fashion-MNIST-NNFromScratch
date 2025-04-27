@@ -2,8 +2,10 @@ import os
 import cupy as np
 import MyDL
 import MyDL.nn as nn
+from MyDL.optimizer import Optimizer
 
 from MyDL import utils
+from typing import Tuple
 
 USE_CUPY = True
 
@@ -45,7 +47,7 @@ class NeuralNetwork:
                 if hasattr(obj, 'eval') and callable(getattr(obj, 'eval')):
                     obj.eval()
 
-    def save(self, filename, path=None):
+    def save(self, filename, path=None, optim:Optimizer=None):
         if path:
             if not os.path.exists(path):
                 os.makedirs(path)
@@ -53,15 +55,30 @@ class NeuralNetwork:
         else:
             path = filename
         self.eval()
-        np.savez(path, *[utils.np_get(param.data) for param in self.params])
+        if optim:
+            np.savez(path, *[utils.np_get(param.data) for param in self.params], *[utils.np_get(param.data) for param in optim.optimizer_params])
+        else:
+            np.savez(path, *[utils.np_get(param.data) for param in self.params])
 
-    def load(self, path):
+    def load(self, path, optim:Optimizer=None):
         with np.load(path) as weights:
-            for param, (name, data) in zip(self.params, weights.items()):
+            weights_data = weights.values() if np.__name__ == 'numpy' else weights.npz_file.values()
+            weights_data = list(weights_data)
+            for param, data in zip(self.params, weights_data[:len(self.params)]):
+                if param.shape != data.shape:
+                    raise ValueError(f"Shape mismatch: {param.shape} vs {data.shape}")
                 if USE_CUPY:
                     param.data = np.asarray(data)
                 else:
-                    param.data = data
+                    param.data = data   
+            if optim:
+                for param, data in zip(optim.optimizer_params, weights_data[len(self.params):]):
+                    if param.shape != data.shape:
+                        raise ValueError(f"Shape mismatch: {param.shape} vs {data.shape}")
+                    if USE_CUPY:
+                        param.data = np.asarray(data)
+                    else:
+                        param.data = data
 
     def __repr__(self):
         return f"nn.NeuralNetwork '{self.__class__.__name__}'"
@@ -69,9 +86,9 @@ class NeuralNetwork:
     def __call__(self, x):
         return self.forward(x)
     
-class Sequential():
-    def __init__(self, *layers):
-        self.params = []
+class Sequential(nn.Layer):
+    def __init__(self, *layers: Tuple[nn.Layer]):
+        super().__init__()
         self.train()
         self.layers = layers
         for layer in self.layers:
@@ -101,6 +118,3 @@ class Sequential():
 
     def __repr__(self):
         return f"nn.Sequential '{self.__class__.__name__}'"
-    
-    def __call__(self, x):
-        return self.forward(x)

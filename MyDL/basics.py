@@ -19,21 +19,31 @@ def train(model, criterion, optimizer,
     if os.path.exists(f'{model_path}/{model_name}.npz'):
         print(f"Model already exists. Loading model from {model_path}/{model_name}.npz...")
         model.load(f'{model_path}/{model_name}.npz')
+        result = np.load(f'{result_path}/{model_name}.npz', allow_pickle=True) if np.__name__ == 'numpy' else np.load(f'{result_path}/{model_name}.npz', allow_pickle=True).npz_file
+        result = {key: result[key] for key in result}
         if continue_if_exists:
+            continued_train = True
             print(f"Model loaded successfully. Training will be continued.")
+            train_loss_iter, val_loss_iter, train_acc_iter, val_acc_iter = result['train_loss_iter'].tolist(), result['val_loss_iter'].tolist(), result['train_acc_iter'].tolist(), result['val_acc_iter'].tolist()
+            train_loss_epoch, val_loss_epoch, train_acc_epoch, val_acc_epoch = result['train_loss_epoch'].tolist(), result['val_loss_epoch'].tolist(), result['train_acc_epoch'].tolist(), result['val_acc_epoch'].tolist()
+            batch_size_till_iter = result['batch_size_till_iter'].tolist()
+            if not calc_val_loss_every_iteration:
+                # Abandon the previous fine grained validation loss and accuracy
+                val_loss_iter = []
+                val_acc_iter = []
         else:
             print(f"Model loaded successfully.")
-        continued_train = True
+            print('Model is not going to be trained further as continue_if_exists is set to False.\n')
+            return result
+    else:
+        train_loss_iter, val_loss_iter, train_acc_iter, val_acc_iter = [], [], [], []
+        train_loss_epoch, val_loss_epoch, train_acc_epoch, val_acc_epoch = [], [], [], []
+        batch_size_till_iter = []
 
-    if continued_train and not continue_if_exists:
-        print('Model is not going to be trained further as continue_if_exists is set to False.\n')
-        result = np.load(f'{result_path}/{model_name}.npz', allow_pickle=True)
-        result = {key: result[key] for key in result}
-        result['continued_train'] = continued_train
-        return result
-    
-    train_loss_iter, val_loss_iter, train_acc_iter, val_acc_iter = [], [], [], []
-    train_loss_epoch, val_loss_epoch, train_acc_epoch, val_acc_epoch = [], [], [], []
+    if len(val_loss_iter) == 0 and continued_train:
+        calc_val_loss_every_iteration = False
+        print('Previous fine grained validation loss and accuracy are not available. calc_val_loss_every_iteration is thus set to False.')
+
     for epoch in range(num_epochs):
         model.train()
         epoch_training_loss = 0.0
@@ -62,7 +72,7 @@ def train(model, criterion, optimizer,
                 val_loss_iter.append(val_loss)
                 val_acc_iter.append(val_acc)
             if (i + 1) % 50 == 0:
-                print(f"iter {i}\t loss {loss}")
+                print(f"iter {i+1}\t loss {loss}")
         epoch_training_loss /= len(train_data)
         epoch_training_acc = correct / len(train_data)
         train_loss_epoch.append(epoch_training_loss)
@@ -75,7 +85,10 @@ def train(model, criterion, optimizer,
         print(f"{spaces} Validation Loss: {val_loss:.3f} \t Accuracy: {val_acc:.3f}")
     model.save(filename=f'{model_name}.npz', path=model_path)
     print('\n')
-    result = {'train_loss_iter': train_loss_iter, 'val_loss_iter': val_loss_iter, 'train_acc_iter': train_acc_iter, 'val_acc_iter': val_acc_iter, 'train_loss_epoch': train_loss_epoch, 'val_loss_epoch': val_loss_epoch, 'train_acc_epoch': train_acc_epoch, 'val_acc_epoch': val_acc_epoch, 'continued_train': continued_train, 'batch_size': batch_size, 'model_name': model_name}
+
+    batch_size_till_iter.append([batch_size, len(train_loss_iter)])
+
+    result = {'train_loss_iter': train_loss_iter, 'val_loss_iter': val_loss_iter, 'train_acc_iter': train_acc_iter, 'val_acc_iter': val_acc_iter, 'train_loss_epoch': train_loss_epoch, 'val_loss_epoch': val_loss_epoch, 'train_acc_epoch': train_acc_epoch, 'val_acc_epoch': val_acc_epoch, 'continued_train': continued_train, 'batch_size': batch_size, 'model_name': model_name, 'model_path': model_path, 'batch_size_till_iter': batch_size_till_iter}
     return result
 
 
@@ -96,32 +109,38 @@ def test(model, test_data, criterion, batch_size=256, load_and_eval=False):
     return loss, acc
 
 
-def save_result(train_loss_iter, train_acc_iter, train_loss_epoch, val_loss_epoch, train_acc_epoch, val_acc_epoch, model_name, batch_size, val_loss_iter=None, val_acc_iter=None, continued_train='false', path='results'):
+def save_result(model_name, result_dict, path='results'):
     if not os.path.exists(path):
         os.makedirs(path)
     filename = f'{model_name}.npz'
     path = os.path.join(path, filename)
-    train_loss_iter, val_loss_iter, train_acc_iter, val_acc_iter = np.array(train_loss_iter), np.array(val_loss_iter), np.array(train_acc_iter), np.array(val_acc_iter)
-    train_loss_epoch, val_loss_epoch, train_acc_epoch, val_acc_epoch = np.array(train_loss_epoch), np.array(val_loss_epoch), np.array(train_acc_epoch), np.array(val_acc_epoch)
-    batch_size_arr = np.array([[batch_size, len(train_loss_iter)]])
-    if continued_train:
-        prev_results = np.load(path)
-        if val_loss_iter is not None and len(prev_results['val_loss_iter']) == train_loss_iter.shape[0]:
-            val_loss_iter = np.concatenate((prev_results['val_loss_iter'], val_loss_iter))
-            val_acc_iter = np.concatenate((prev_results['val_acc_iter'], val_acc_iter))
-        train_loss_iter = np.concatenate((prev_results['train_loss_iter'], train_loss_iter))
-        train_acc_iter = np.concatenate((prev_results['train_acc_iter'], train_acc_iter))
-        train_loss_epoch = np.concatenate((prev_results['train_loss_epoch'], train_loss_epoch))
-        val_loss_epoch = np.concatenate((prev_results['val_loss_epoch'], val_loss_epoch))
-        train_acc_epoch = np.concatenate((prev_results['train_acc_epoch'], train_acc_epoch))
-        val_acc_epoch = np.concatenate((prev_results['val_acc_epoch'], val_acc_epoch))
-        till_iter = len(train_loss_iter)
-        batch_size_arr = np.concatenate((prev_results['batch_size_till_iter'], [[batch_size, till_iter]]), axis=0)
-    if val_loss_iter.shape[0] == train_loss_iter.shape[0]:
-        no_missing_val_loss_iter = True
-    else:
-        no_missing_val_loss_iter = False
-    np.savez(path, train_loss_iter=train_loss_iter, val_loss_iter=val_loss_iter, train_acc_iter=train_acc_iter, val_acc_iter=val_acc_iter, train_loss_epoch=train_loss_epoch, val_loss_epoch=val_loss_epoch, train_acc_epoch=train_acc_epoch, val_acc_epoch=val_acc_epoch, batch_size_till_iter=batch_size_arr, no_missing_val_loss_iter=no_missing_val_loss_iter, model_name=model_name, continued_train=continued_train)
+
+    result_dict_array = {key: np.array(value) for key, value in result_dict.items() if key not in ['model_name', 'model_path']}
+
+    np.savez(path, **result_dict_array)
+    print(f"Results saved to {path}.")
+    return
+    # train_loss_iter, val_loss_iter, train_acc_iter, val_acc_iter = np.array(train_loss_iter), np.array(val_loss_iter), np.array(train_acc_iter), np.array(val_acc_iter)
+    # train_loss_epoch, val_loss_epoch, train_acc_epoch, val_acc_epoch = np.array(train_loss_epoch), np.array(val_loss_epoch), np.array(train_acc_epoch), np.array(val_acc_epoch)
+    # batch_size_arr = np.array([[batch_size, len(train_loss_iter)]])
+    # if continued_train:
+    #     prev_results = np.load(path)
+    #     if val_loss_iter is not None and len(prev_results['val_loss_iter']) == train_loss_iter.shape[0]:
+    #         val_loss_iter = np.concatenate((prev_results['val_loss_iter'], val_loss_iter))
+    #         val_acc_iter = np.concatenate((prev_results['val_acc_iter'], val_acc_iter))
+    #     train_loss_iter = np.concatenate((prev_results['train_loss_iter'], train_loss_iter))
+    #     train_acc_iter = np.concatenate((prev_results['train_acc_iter'], train_acc_iter))
+    #     train_loss_epoch = np.concatenate((prev_results['train_loss_epoch'], train_loss_epoch))
+    #     val_loss_epoch = np.concatenate((prev_results['val_loss_epoch'], val_loss_epoch))
+    #     train_acc_epoch = np.concatenate((prev_results['train_acc_epoch'], train_acc_epoch))
+    #     val_acc_epoch = np.concatenate((prev_results['val_acc_epoch'], val_acc_epoch))
+    #     till_iter = len(train_loss_iter)
+    #     batch_size_arr = np.concatenate((prev_results['batch_size_till_iter'], [[batch_size, till_iter]]), axis=0)
+    # if val_loss_iter.shape[0] == train_loss_iter.shape[0]:
+    #     no_missing_val_loss_iter = True
+    # else:
+    #     no_missing_val_loss_iter = False
+    # np.savez(path, train_loss_iter=train_loss_iter, val_loss_iter=val_loss_iter, train_acc_iter=train_acc_iter, val_acc_iter=val_acc_iter, train_loss_epoch=train_loss_epoch, val_loss_epoch=val_loss_epoch, train_acc_epoch=train_acc_epoch, val_acc_epoch=val_acc_epoch, batch_size_till_iter=batch_size_arr, no_missing_val_loss_iter=no_missing_val_loss_iter, model_name=model_name, continued_train=continued_train)
 
 
 def load_result(model_name, path='results'):
