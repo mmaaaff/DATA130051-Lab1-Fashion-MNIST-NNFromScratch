@@ -135,7 +135,7 @@ class MyTensor:
         elif isinstance(other, MyTensor):
             other_neg = other.neg()
         else:
-            raise TypeError("Unsupported operand type(s) for -: '{}' and '{}'".format(type(self), type(other)))
+            raise TypeError(f"Unsupported operand type(s) for -: '{type(self)}' and '{type(other)}'")
         return self.__add__(other_neg)
 
     def __rsub__(self, other):  # Same as __sub__ but for right subtraction

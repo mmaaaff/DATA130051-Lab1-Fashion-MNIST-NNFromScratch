@@ -420,20 +420,15 @@ class BatchNorm2d(Layer):
     def train(self):
         self.training = True
 
-class Dropout():
+class Dropout(Layer):
     def __init__(self, p:float=0.5):
         super().__init__()
         self.p = p
 
     def forward(self, x:MyTensor):
+        assert len(x.shape) == 2, f"Dropout() requires x in dim of 2 (batch, vec_length), but got x.shape = {x.shape}"
         if self.training:
-            mask = np.random.rand(*x.shape) > self.p
-            x.data *= mask / (1 - self.p)
-            x.grad *= mask / (1 - self.p)
+            mask = np.random.rand(*x.shape) < self.p
+            mask = MyTensor(mask, requires_grad=False)
+            x = x * mask * (1 / self.p)
         return x
-
-    def train(self):
-        self.training = True
-
-    def eval(self):
-        self.training = False

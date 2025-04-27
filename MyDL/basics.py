@@ -2,10 +2,6 @@ import os
 import MyDL
 from MyDL.data import *
 
-def np_get(arr):
-    if isinstance(arr, cp.ndarray):
-        return arr.get()
-
 def train(model, criterion, optimizer, 
           train_data, val_data, num_epochs=10,
            batch_size=256, lambda_L2=0.001, 
@@ -72,7 +68,7 @@ def train(model, criterion, optimizer,
                 val_loss_iter.append(val_loss)
                 val_acc_iter.append(val_acc)
             if (i + 1) % 50 == 0:
-                print(f"iter {i+1}\t loss {loss}")
+                print(f"iter {i+1}\t loss {loss.data:.3f}")
         epoch_training_loss /= len(train_data)
         epoch_training_acc = correct / len(train_data)
         train_loss_epoch.append(epoch_training_loss)
