@@ -16,6 +16,11 @@ class Optimizer(abc.ABC):
     def zero_grad(self):
         pass
 
+    def empty(self):
+        for param in self.params:
+            param.data = None
+            param.grad = None
+
 
 class SGD(Optimizer):
     def __init__(self, params, lr=0.01):

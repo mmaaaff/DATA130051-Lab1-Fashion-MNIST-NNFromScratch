@@ -1,5 +1,8 @@
 from MyDL.tensor import *
 import cupy as np
+import random
+from PIL import Image, ImageEnhance
+from typing import Tuple
 
 class Dataset():
     def __init__(self, X, y):
@@ -11,7 +14,7 @@ class Dataset():
 
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
-    
+
 
 def Dataloader(dataset, batch_size, shuffle=True):
     if isinstance(dataset, MyTensor):
@@ -28,3 +31,91 @@ def Dataloader(dataset, batch_size, shuffle=True):
     if j < n:
         batch_indices = indices[j:]
         yield dataset[batch_indices]
+
+
+class mnist_dataset(Dataset):
+    def __init__(self, images:MyTensor, labels, augment=False, augment_prob=0.5, unfold=False):
+        self.images = images
+        self.labels = labels
+        self.augment = augment
+        self.augment_prob = augment_prob
+        self.unfold = unfold
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, index):
+        images = self.images[index]
+        labels = self.labels[index]
+
+        # Data Augmentation
+        if self.augment:
+            images = np.asnumpy(images.data)
+            assert images.dtype == np.uint8, "Image dtype must be uint8 for augmentation."
+            hflip_prob = 0.5
+            rotate_degrees = 15
+            brightness_range = (0.8, 1.2)
+
+            n, c, h, w = images.shape
+            augmented_images_list = []
+            original_dtype = images.dtype
+
+            for i in range(n):
+                do_augentation = random.random() < self.augment_prob
+                if not do_augentation:
+                    augmented_images_list.append(images[i])
+                    continue
+
+                single_image_chw = images[i]  #(c, h, w)
+
+                img_np_hw = single_image_chw[0]  # (h, w)
+
+                pil_mode = 'L'
+
+                img_pil = Image.fromarray(img_np_hw, mode=pil_mode)
+
+                # --- Augmentation ---
+                # Flipping
+                if random.random() < hflip_prob:
+                    img_pil = img_pil.transpose(Image.FLIP_LEFT_RIGHT)
+                # Rotating
+                if rotate_degrees > 0:
+                    angle = random.uniform(-rotate_degrees, rotate_degrees)
+                    # 使用 BICUBIC 插值获得更好的旋转质量
+                    fill_value = (0,) * c
+                    img_pil = img_pil.rotate(angle, resample=Image.BICUBIC, expand=False, fillcolor=fill_value)
+                # Brightness Adjustment
+                if brightness_range != (1.0, 1.0):
+                    factor = random.uniform(brightness_range[0], brightness_range[1])
+                    enhancer = ImageEnhance.Brightness(img_pil)
+                    img_pil = enhancer.enhance(factor)
+                # Contrast Adjustment
+                if random.random() < 0.3:
+                    contrast_factor = random.uniform(0.8, 1.2)
+                    enhancer = ImageEnhance.Contrast(img_pil)
+                    img_pil = enhancer.enhance(contrast_factor)
+                # Color Adjustment
+                if random.random() < 0.3:
+                    color_factor = random.uniform(0.8, 1.2)
+                    enhancer = ImageEnhance.Color(img_pil)
+                    img_pil = enhancer.enhance(color_factor)
+
+                augmented_img_np_hwc = np.expand_dims(np.array(img_pil), axis=0)  # (1, h, w)
+                if augmented_img_np_hwc.shape != (h, w, c):  # shape should not change if everything is correct
+                    augmented_images_list.append(single_image_chw)
+                    continue
+                augmented_img_np_chw = np.transpose(augmented_img_np_hwc, (2, 0, 1))  # (c, h, w)
+                augmented_images_list.append(augmented_img_np_chw)
+
+            # images = np.stack(augmented_images_list, axis=0)
+            if self.unfold:
+                images = images.reshape(-1, 28 * 28)
+            images = MyTensor(np.array(images), requires_grad=False)  # transfer to gpu and create tensor
+        
+        else:
+            images = images.data
+            if self.unfold:
+                images = images.reshape(-1, 28 * 28)
+            images = MyTensor(np.array(images), requires_grad=False)
+
+        return images, labels

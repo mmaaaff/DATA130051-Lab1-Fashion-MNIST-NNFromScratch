@@ -79,6 +79,11 @@ class NeuralNetwork:
                         param.data = np.asarray(data)
                     else:
                         param.data = data
+    
+    def empty(self):
+        for param in self.params:
+            param.data = None
+            param.grad = None
 
     def __repr__(self):
         return f"nn.NeuralNetwork '{self.__class__.__name__}'"
