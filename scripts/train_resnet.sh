@@ -1,0 +1,2 @@
+export CUDA_VISIBLE_DEVICES=1
+python train.py resnet adam 256 30 -lr 0.05 --lambda-L2 0.0 --augment True --augment-prob 0.5 --val-interval 0 --model-path MNIST_result/model_params --result-path MNIST_result/results

@@ -2,9 +2,8 @@ import os
 import cupy as np
 import MyDL
 import MyDL.nn as nn
-from MyDL.optimizer import Optimizer
+from MyDL.optimizer import Optimizer, Scheduler
 
-from MyDL import utils
 from typing import Tuple
 
 USE_CUPY = True
@@ -56,9 +55,9 @@ class NeuralNetwork:
             path = filename
         self.eval()
         if optim:
-            np.savez(path, *[utils.np_get(param.data) for param in self.params], *[utils.np_get(param.data) for param in optim.optimizer_params])
+            np.savez(path, *[param.data for param in self.params], *[param.data for param in optim.optimizer_params])
         else:
-            np.savez(path, *[utils.np_get(param.data) for param in self.params])
+            np.savez(path, *[param.data for param in self.params])
 
     def load(self, path, optim:Optimizer=None):
         with np.load(path) as weights:

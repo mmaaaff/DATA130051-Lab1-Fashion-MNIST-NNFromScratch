@@ -50,15 +50,14 @@ class mnist_dataset(Dataset):
 
         # Data Augmentation
         if self.augment:
-            images = np.asnumpy(images.data)
+            images = images.data
             assert images.dtype == np.uint8, "Image dtype must be uint8 for augmentation."
             hflip_prob = 0.5
-            rotate_degrees = 15
+            rotate_degrees = 45
             brightness_range = (0.8, 1.2)
 
             n, c, h, w = images.shape
             augmented_images_list = []
-            original_dtype = images.dtype
 
             for i in range(n):
                 do_augentation = random.random() < self.augment_prob
@@ -66,7 +65,7 @@ class mnist_dataset(Dataset):
                     augmented_images_list.append(images[i])
                     continue
 
-                single_image_chw = images[i]  #(c, h, w)
+                single_image_chw = np.asnumpy(images[i])  #(c, h, w)
 
                 img_np_hw = single_image_chw[0]  # (h, w)
 
@@ -76,8 +75,8 @@ class mnist_dataset(Dataset):
 
                 # --- Augmentation ---
                 # Flipping
-                if random.random() < hflip_prob:
-                    img_pil = img_pil.transpose(Image.FLIP_LEFT_RIGHT)
+                # if random.random() < hflip_prob:
+                #     img_pil = img_pil.transpose(Image.FLIP_LEFT_RIGHT)
                 # Rotating
                 if rotate_degrees > 0:
                     angle = random.uniform(-rotate_degrees, rotate_degrees)
@@ -90,27 +89,22 @@ class mnist_dataset(Dataset):
                     enhancer = ImageEnhance.Brightness(img_pil)
                     img_pil = enhancer.enhance(factor)
                 # Contrast Adjustment
-                if random.random() < 0.3:
+                if random.random() < 0.8:
                     contrast_factor = random.uniform(0.8, 1.2)
                     enhancer = ImageEnhance.Contrast(img_pil)
                     img_pil = enhancer.enhance(contrast_factor)
                 # Color Adjustment
-                if random.random() < 0.3:
+                if random.random() < 0.8:
                     color_factor = random.uniform(0.8, 1.2)
                     enhancer = ImageEnhance.Color(img_pil)
                     img_pil = enhancer.enhance(color_factor)
 
-                augmented_img_np_hwc = np.expand_dims(np.array(img_pil), axis=0)  # (1, h, w)
-                if augmented_img_np_hwc.shape != (h, w, c):  # shape should not change if everything is correct
-                    augmented_images_list.append(single_image_chw)
-                    continue
-                augmented_img_np_chw = np.transpose(augmented_img_np_hwc, (2, 0, 1))  # (c, h, w)
+                augmented_img_np_chw = np.expand_dims(np.array(img_pil), axis=0)  # (1, h, w)
                 augmented_images_list.append(augmented_img_np_chw)
-
-            # images = np.stack(augmented_images_list, axis=0)
+            images = np.array(augmented_images_list)
             if self.unfold:
                 images = images.reshape(-1, 28 * 28)
-            images = MyTensor(np.array(images), requires_grad=False)  # transfer to gpu and create tensor
+            images = MyTensor(images, requires_grad=False)  # transfer to gpu and create tensor
         
         else:
             images = images.data

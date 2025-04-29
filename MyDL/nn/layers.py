@@ -34,11 +34,12 @@ class Layer(abc.ABC):
 
 
 class Linear(Layer):
-    def __init__(self, in_features, out_features, initialize='random'):
+    def __init__(self, in_features, out_features, initialize='xavier'):
         super().__init__()
-        if initialize == 'random':
-            self.weights = MyTensor(np.random.randn(in_features, out_features), requires_grad=True)
-            self.bias = MyTensor(np.random.randn(out_features), requires_grad=True)
+        if initialize == 'xavier':
+            self.weights = MyTensor(np.sqrt(6 / (in_features * out_features)) * 2 * (np.random.rand(in_features, out_features) - 1))
+            print(self.weights.shape)
+            self.bias = MyTensor(np.zeros(out_features), requires_grad=True)
         elif initialize == 'zeros':
             self.weights = MyTensor(np.zeros((in_features, out_features)), requires_grad=True)
             self.bias = MyTensor(np.zeros(out_features), requires_grad=True)

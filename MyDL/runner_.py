@@ -5,7 +5,7 @@ from MyDL import nn
 
 
 class runner():
-    def __init__(self, model:nn.NeuralNetwork, model_name:str, optimizer:nn.Optimizer, criterion, batch_size:int, scheduler=None):
+    def __init__(self, model:nn.NeuralNetwork, model_name:str, optimizer:nn.Optimizer, criterion, batch_size:int, scheduler:nn.Scheduler=None):
         self.model = model
         self.optimizer = optimizer
         self.loss_fn = criterion
@@ -72,6 +72,8 @@ class runner():
                 self.optimizer.zero_grad()
                 loss_with_L2.backward()
                 self.optimizer.step()
+                if self.scheduler is not None:
+                    self.scheduler.step()
                 if val_interval > 0 and ((i + 1) % val_interval == 0):
                     val_loss, val_acc = self.eval(val_data, 2 * self.batch_size)  # Larger batch size for validation as it doesn't require backpropagation. Boosts speed.
                     val_loss_iter.append(val_loss)

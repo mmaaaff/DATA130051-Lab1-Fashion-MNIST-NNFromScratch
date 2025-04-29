@@ -59,11 +59,11 @@ class ResNetMNIST(nn.NeuralNetwork):
         self.layer2 = self._make_layer(block, 32, 2, stride=2)
         self.layer3 = self._make_layer(block, 64, 2, stride=2)
         self.avg_pool = nn.FullAveragePool2d()
-        self.dropout1 = nn.Dropout(0.5)
-        self.fc1 = nn.Linear(64, 256)
-        self.BN = nn.BatchNorm1d(256)
-        self.dropout2 = nn.Dropout(0.5)
-        self.fc2 = nn.Linear(256, num_classes)
+        # self.dropout1 = nn.Dropout(0.5)
+        self.fc1 = nn.Linear(64, 10)
+        # self.BN = nn.BatchNorm1d(256)
+        # self.dropout2 = nn.Dropout(0.5)
+        # self.fc2 = nn.Linear(256, num_classes)
 
     def _make_layer(self, block, out_channels, blocks, stride):
         strides = [stride] + [1] * (blocks - 1)
@@ -79,8 +79,8 @@ class ResNetMNIST(nn.NeuralNetwork):
         out = self.layer2(out)
         out = self.layer3(out)
         out = self.avg_pool(out)  # (batch, c)
-        out = self.dropout1(out)  # (batch, c)
-        out = self.dropout2(nn.ReLU.forward(self.BN(self.fc1(out))))
-        out = self.fc2(out)
+        # out = self.dropout1(out)  # (batch, c)
+        # out = self.dropout2(nn.ReLU.forward(self.BN(self.fc1(out))))
+        out = self.fc1(out)
         out = nn.Softmax.forward(out)
         return out
