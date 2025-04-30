@@ -37,26 +37,23 @@ The version should be based on you CUDA version. For CUDAToolkit installation, p
 
 ## Classification on Fashion-MNIST
 
-1. **Hyperparameter searching**
+1. **Training**
 
-    > - In the root dir find **search_hyperparams.ipynb**.
-    > - Running this file splits the training data into training set and validation set in 5:1 ratio, and trains the model with different hyperparameters.
-    > - Model parameters and results will be automatically saved in **model_params** and **results**. Best model is selected based on validation accuracy.
-
-    ***
-
-2. **Training**
-
-    > - Running **train.ipynb** trains the best model selected in above on the whole training data.
-    > - model parameters and results will be saved in **final_model_params** ans **final_results**.
+    > - The training code is train.py.
+    > - To train a network, use shell scripts in train_mlp.sh and train_resnet.sh in scripts/.
 
     ***
 
-3. **Testing**
+2. **Testing**
 
-    > - Run **test.ipynb** to test the traind model on test data. This returns the model accuracy on test data.
+    > - The testing code is test.py
+    > - To test a network on test set, use shell scripts in test_mlp.sh and test_resnet.sh in scripts/.
 
-***
+    ***
+
+3. Sample Networks
+
+    MyDL contains two sample networks: MLP and ResNet. Find them in MyDL/sample_networks. These two networks are used in training classifiers on MNIST.
 
 ## Utilizing MyDL
 
