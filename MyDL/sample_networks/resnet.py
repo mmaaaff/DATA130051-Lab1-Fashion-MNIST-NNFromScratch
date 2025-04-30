@@ -27,7 +27,7 @@ class ResiduleBlock(nn.NeuralNetwork):
         if self.cross_block:
             x = self.conv_shortcut(x)
             x = self.bn_shortcut(x)
-        out = out + x  # 残差连接
+        out = out + x  # residual connection
         out = nn.ReLU.forward(out)
         return out
     

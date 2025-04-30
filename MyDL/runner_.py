@@ -59,9 +59,12 @@ class runner():
                 loss = self.loss_fn(output, y_batch)
                 train_loss_iter.append(loss.data)
                 L2 = MyDL.MyTensor(0.)
+                n = 0
                 for param in self.model.params:
                     if param.requires_grad:
                         L2 = L2 + param.square().sum().item()
+                        n += np.sum(np.ones_like(param.data)).item()
+                L2 = L2 * (1 / n)
                 loss_with_L2 = loss + lambda_L2 * L2
                 epoch_training_loss += loss.data * len(X_batch)
                 y_pred = output.data.argmax(axis=1)

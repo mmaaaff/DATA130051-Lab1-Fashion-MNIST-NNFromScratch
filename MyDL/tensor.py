@@ -2,7 +2,7 @@ import cupy as np
 from typing import Union, Tuple
 
 class MyTensor:
-    def __init__(self, data, requires_grad=True, grad_fn=None):
+    def __init__(self, data:np, requires_grad=True, grad_fn=None):
         if not isinstance(data, np.ndarray):
             if isinstance(data, list):
                 data = np.array(data)

@@ -30,6 +30,7 @@ parser.add_argument('--augment', type=str, default=False)
 parser.add_argument('--augment-prob', type=float, default=0.5)
 parser.add_argument('--val-interval', type=int, default=30)
 parser.add_argument('--layer-size', nargs='+', type=int, default=[512, 128])
+parser.add_argument('--mlp-dropout', type=float, default=0.0)
 parser.add_argument('--activ-func', choices=['relu', 'sigmoid', 'tanh'], default='relu')
 parser.add_argument('--model-path', type=str, default='MNIST_result/model_params')
 parser.add_argument('--result-path', type=str, default='MNIST_result/results')
@@ -90,10 +91,10 @@ result_path = args.result_path
 
 if args.model_type == 'mlp':
     if hidden_size2 > 0:
-        model_name = f'MLP3_({hidden_size1},{hidden_size2})_{activ_func}_L2-{lambda_L2}_lr-{lr}_augment={train_data.augment}_schduler={args.scheduler}_{args.milestones}_{args.scheduler_gamma}'
-        model = MyDL.sample_networks.MLP3(hidden_size1=hidden_size1, hidden_size2=hidden_size2, activation=activ_func)
+        model_name = f'MLP3_({hidden_size1},{hidden_size2})_dropout{args.mlp_dropout}_{activ_func}_L2-{lambda_L2}_lr-{lr}_augment={train_data.augment}_optim={args.optimizer}_schduler={args.scheduler}_{args.milestones}_{args.scheduler_gamma}'
+        model = MyDL.sample_networks.MLP3(hidden_size1=hidden_size1, hidden_size2=hidden_size2, activation=activ_func, dropout=args.mlp_dropout)
     else:
-        model_name = f'MLP2_({hidden_size1})_{activ_func}_L2-{lambda_L2}_lr-{lr}_augment={train_data.augment}_schduler={args.scheduler}_{args.milestones}_{args.scheduler_gamma}'
+        model_name = f'MLP3_({hidden_size1})_dropout{args.mlp_dropout}_{activ_func}_L2-{lambda_L2}_lr-{lr}_augment={train_data.augment}_optim={args.optimizer}schduler={args.scheduler}_{args.milestones}_{args.scheduler_gamma}'
         model = MyDL.sample_networks.MLP2(hidden_size=hidden_size1, activation=activ_func)
 elif args.model_type == 'resnet':
     model_name = f'ResNet_relu_L2-{lambda_L2}_lr-{lr}_augment={train_data.augment}_schduler={args.scheduler}_{args.milestones}_{args.scheduler_gamma}'
@@ -102,9 +103,9 @@ print(f'model: {model_name}')
 
 criterion = nn.CrossEntropyLoss()
 if optimizer == 'sgd':
-    optimizer = optim.SGD(model.params, lr=lr, momentum=0.9, weight_decay=lambda_L2)
+    optimizer = optim.SGD(model.params, lr=lr)
 elif optimizer == 'momentum':
-    optimizer = optim.Momentum(model.params, lr=lr, momentum=0.9, weight_decay=lambda_L2)
+    optimizer = optim.Momentum(model.params, lr=lr, momentum=0.9)
 elif optimizer == 'adam':
     optimizer = optim.Adam(model.params, lr=lr)
 
@@ -156,10 +157,10 @@ def plot_figures(model_name):
     # --- Loss Curve ---
     plt.figure(figsize=(10, 6))
     plt.plot(x1, train_loss, label='Train Loss', linewidth=2)
-    plt.plot(x2, val_loss, label='Test Loss', linewidth=2)
+    plt.plot(x2, val_loss, label='Validation Loss', linewidth=2)
     plt.xlabel('Iteration', fontsize=12)
     plt.ylabel('Loss', fontsize=12)
-    plt.title('Training and Test Loss Curve', fontsize=14)
+    plt.title('Training and Validation Loss Curve', fontsize=14)
     plt.legend(loc='upper right', fontsize=10)
     f = os.path.join(result_path, f'{model_name}_loss.pdf')
     plt.savefig(f, bbox_inches='tight')
@@ -169,10 +170,10 @@ def plot_figures(model_name):
     # --- Accuracy Curve ---
     plt.figure(figsize=(10, 6))
     plt.plot(x1, train_acc, label='Train Accuracy', linewidth=2)
-    plt.plot(x2, val_acc, label='Test Accuracy', linewidth=2)
+    plt.plot(x2, val_acc, label='Validation Accuracy', linewidth=2)
     plt.xlabel('Iteration', fontsize=12)
     plt.ylabel('Accuracy', fontsize=12)
-    plt.title('Training and Test Accuracy Curve', fontsize=14)
+    plt.title('Training and Validation Accuracy Curve', fontsize=14)
     plt.legend(loc='lower right', fontsize=10)
     f = os.path.join(result_path, f'{model_name}_accuracy.pdf')
     plt.savefig(f, bbox_inches='tight')

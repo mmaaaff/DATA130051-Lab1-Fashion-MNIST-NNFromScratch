@@ -4,8 +4,6 @@ from cupy.lib.stride_tricks import as_strided
 import time
 import abc
 
-from MyDL import utils
-
 
 class Layer(abc.ABC):
     def __init__(self):
@@ -38,7 +36,6 @@ class Linear(Layer):
         super().__init__()
         if initialize == 'xavier':
             self.weights = MyTensor(np.sqrt(6 / (in_features * out_features)) * 2 * (np.random.rand(in_features, out_features) - 1))
-            print(self.weights.shape)
             self.bias = MyTensor(np.zeros(out_features), requires_grad=True)
         elif initialize == 'zeros':
             self.weights = MyTensor(np.zeros((in_features, out_features)), requires_grad=True)
@@ -366,14 +363,15 @@ class BatchNorm1d(Layer):
         return x
     def eval(self):
         self.training = False
-        u_all = np.array(self.u_all)
-        var_all = np.array(self.var_all)
-        u_variance = u_all.var(axis=0)  # (c)
-        var_mean = var_all.mean(axis=0)  # (c)
-        var_total = var_mean + u_variance
-        u_total = u_all.mean(axis=0)
-        self.variance.data = var_total
-        self.mean.data = u_total
+        if len(self.u_all) > 0:  # if is evaluating during training
+            u_all = np.array(self.u_all)
+            var_all = np.array(self.var_all)
+            u_variance = u_all.var(axis=0)  # (c)
+            var_mean = var_all.mean(axis=0)  # (c)
+            var_total = var_mean + u_variance
+            u_total = u_all.mean(axis=0)
+            self.variance.data = var_total
+            self.mean.data = u_total
         pass
     def train(self):
         self.training = True
@@ -395,9 +393,7 @@ class BatchNorm2d(Layer):
         assert len(x.shape) == 4, f"BatchNorm2d() requires x in dim of 4, but got x.shape = {x.shape}"
         if self.training:  # During training, use batch normalization and record the mean and variance of each batch
             u = x.sum(axis=(0, 2, 3)) * (1 / (x.shape[0] * x.shape[2] * x.shape[3]))  # (1, c, 1, 1)
-            u = u.detatch()
             var = ((x - u).square().sum(axis=(0, 2, 3)) * (1 / (x.shape[0] * x.shape[2] * x.shape[3])))  # (1, c, 1, 1)
-            var = var.detatch()
             x = (x - u) * ((var + self.eps).sqrt().inv())
             u_data = u.data
             self.u_all.append(u_data)
@@ -408,16 +404,17 @@ class BatchNorm2d(Layer):
         return x
     def eval(self):
         self.training = False
-        u_all = np.array(self.u_all)  # (n, 1, c, 1, 1)
-        var_all = np.array(self.var_all)  # (n, 1, c, 1, 1)
-        u_variance = u_all.var(axis=0)  # (1, c, 1, 1)
-        var_mean = var_all.mean(axis=0)  # (1, c, 1, 1)
-        var_total = var_mean + u_variance  # (1, c, 1, 1)
-        u_total = u_all.mean(axis=0)  # (1, c, 1, 1)
-        self.variance.data = var_total
-        self.mean.data = u_total
-        self.variance.requires_grad = False
-        self.mean.requires_grad = False
+        if len(self.u_all) > 0: # if is evaluating during training
+            u_all = np.array(self.u_all)  # (n, 1, c, 1, 1)
+            var_all = np.array(self.var_all)  # (n, 1, c, 1, 1)
+            u_variance = u_all.var(axis=0)  # (1, c, 1, 1)
+            var_mean = var_all.mean(axis=0)  # (1, c, 1, 1)
+            var_total = var_mean + u_variance  # (1, c, 1, 1)
+            u_total = u_all.mean(axis=0)  # (1, c, 1, 1)
+            self.variance.data = var_total
+            self.mean.data = u_total
+            self.variance.requires_grad = False
+            self.mean.requires_grad = False
     def train(self):
         self.training = True
 
