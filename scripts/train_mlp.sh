@@ -1,6 +1,7 @@
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=1
 
 python train.py mlp adam 256 30 \
+--full-train True \
 --scheduler None \
 --milestones 500 1000 2000 \
 --scheduler-gamma 0.3 \
@@ -8,7 +9,7 @@ python train.py mlp adam 256 30 \
 --lambda-L2 0.5 \
 --augment False \
 --augment-prob 0.5 \
---val-interval 30 \
+--val-interval 0 \
 --layer-size 600 100 \
 --mlp-dropout 0.7 \
 --model-path MNIST_result/model_params --result-path MNIST_result/results

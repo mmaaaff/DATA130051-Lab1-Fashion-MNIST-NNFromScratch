@@ -21,6 +21,7 @@ parser.add_argument('model_type', choices=['mlp', 'resnet'])
 parser.add_argument('optimizer', choices=['sgd', 'momentum', 'adam'])
 parser.add_argument('batch_size', type=int, default=64)
 parser.add_argument('num_epochs', type=int, default=20)
+parser.add_argument('--full-train', type=str, choices=['True', 'False'], default="False")
 parser.add_argument('--scheduler', choices=['MultiStepLR', 'None'], default='None')
 parser.add_argument('--milestones', nargs='+', type=int, default=[0, 0])
 parser.add_argument('--scheduler-gamma', type=float, default=0.5)
@@ -33,38 +34,55 @@ parser.add_argument('--layer-size', nargs='+', type=int, default=[512, 128])
 parser.add_argument('--mlp-dropout', type=float, default=0.0)
 parser.add_argument('--activ-func', choices=['relu', 'sigmoid', 'tanh'], default='relu')
 parser.add_argument('--model-path', type=str, default='MNIST_result/model_params')
-parser.add_argument('--result-path', type=str, default='MNIST_result/results')
+parser.add_argument('--result-path', type=str, default='None')
 parser.add_argument('--continue-if-exists', default=False, help='Continue training if model already exists')
 
 args = parser.parse_args()
 
 train_images_path = r'dataset/MNIST/train-images-idx3-ubyte.gz'
 train_labels_path = r'dataset/MNIST/train-labels-idx1-ubyte.gz'
+test_images_path = r'dataset/MNIST/t10k-images-idx3-ubyte.gz'
+test_labels_path = r'dataset/MNIST/t10k-labels-idx1-ubyte.gz'
 
 with gzip.open(train_images_path, 'rb') as f:
-        magic, num, rows, cols = unpack('>4I', f.read(16))
-        train_imgs=np.frombuffer(f.read(), dtype=np.uint8).reshape(num, 28*28)
+        magic, num_train, rows, cols = unpack('>4I', f.read(16))
+        train_imgs = np.frombuffer(f.read(), dtype=np.uint8).reshape(num_train, 28*28)
     
 with gzip.open(train_labels_path, 'rb') as f:
-        magic, num = unpack('>2I', f.read(8))
+        magic, num_train = unpack('>2I', f.read(8))
         train_labels = np.frombuffer(f.read(), dtype=np.uint8)
 
+with gzip.open(test_images_path, 'rb') as f:
+        magic, num_test, rows, cols = unpack('>4I', f.read(16))
+        test_imgs = np.frombuffer(f.read(), dtype=np.uint8).reshape(num_test, 28*28)
+    
+with gzip.open(test_labels_path, 'rb') as f:
+        magic, num_test = unpack('>2I', f.read(8))
+        test_labels = np.frombuffer(f.read(), dtype=np.uint8)
+
 # Data preperation
-idx = np.random.permutation(np.arange(num))
+idx = np.random.permutation(np.arange(num_train))
 
 with open('idx.pickle', 'wb') as f:
         pickle.dump(idx, f)
 train_imgs = train_imgs[idx]
 train_labels = train_labels[idx]
-valid_imgs = train_imgs[:10000]
-valid_labels = train_labels[:10000]
-train_imgs = train_imgs[10000:]
-train_labels = train_labels[10000:]
 
-X_train_mytensor = MyDL.MyTensor(train_imgs.reshape(-1, 1, 28, 28), requires_grad=False)
-y_train_mytensor = MyDL.MyTensor(train_labels, requires_grad=False)
-X_val_mytensor = MyDL.MyTensor(valid_imgs.reshape(-1, 1, 28, 28), requires_grad=False)
-y_val_mytensor = MyDL.MyTensor(valid_labels, requires_grad=False)
+
+if args.full_train == "False":
+    valid_imgs = train_imgs[:10000]
+    valid_labels = train_labels[:10000]
+    train_imgs = train_imgs[10000:]
+    train_labels = train_labels[10000:]
+    X_train_mytensor = MyDL.MyTensor(train_imgs.reshape(-1, 1, 28, 28), requires_grad=False)
+    y_train_mytensor = MyDL.MyTensor(train_labels, requires_grad=False)
+    X_val_mytensor = MyDL.MyTensor(valid_imgs.reshape(-1, 1, 28, 28), requires_grad=False)
+    y_val_mytensor = MyDL.MyTensor(valid_labels, requires_grad=False)
+else:
+    X_train_mytensor = MyDL.MyTensor(train_imgs.reshape(-1, 1, 28, 28), requires_grad=False)
+    y_train_mytensor = MyDL.MyTensor(train_labels, requires_grad=False)
+    X_val_mytensor = MyDL.MyTensor(test_imgs.reshape(-1, 1, 28, 28), requires_grad=False)
+    y_val_mytensor = MyDL.MyTensor(test_labels, requires_grad=False)
 
 
 unfold = True if args.model_type == 'mlp' else False
@@ -99,6 +117,10 @@ if args.model_type == 'mlp':
 elif args.model_type == 'resnet':
     model_name = f'ResNet_relu_L2-{lambda_L2}_lr-{lr}_augment={train_data.augment}_schduler={args.scheduler}_{args.milestones}_{args.scheduler_gamma}'
     model = MyDL.sample_networks.ResNetMNIST()
+
+if args.full_train == 'True':  # Train the best model on full training data
+    model_name = args.model_type + "_best"
+
 print(f'model: {model_name}')
 
 criterion = nn.CrossEntropyLoss()
@@ -155,12 +177,13 @@ def plot_figures(model_name):
     plt.style.use('seaborn-v0_8-darkgrid')
 
     # --- Loss Curve ---
+    test_or_val = "Test" if args.full_train == "True" else "Validation"
     plt.figure(figsize=(10, 6))
     plt.plot(x1, train_loss, label='Train Loss', linewidth=2)
-    plt.plot(x2, val_loss, label='Validation Loss', linewidth=2)
+    plt.plot(x2, val_loss, label=f'{test_or_val} Loss', linewidth=2)
     plt.xlabel('Iteration', fontsize=12)
     plt.ylabel('Loss', fontsize=12)
-    plt.title('Training and Validation Loss Curve', fontsize=14)
+    plt.title(f'Training and {test_or_val} Loss Curve', fontsize=14)
     plt.legend(loc='upper right', fontsize=10)
     f = os.path.join(result_path, f'{model_name}_loss.pdf')
     plt.savefig(f, bbox_inches='tight')
@@ -170,10 +193,10 @@ def plot_figures(model_name):
     # --- Accuracy Curve ---
     plt.figure(figsize=(10, 6))
     plt.plot(x1, train_acc, label='Train Accuracy', linewidth=2)
-    plt.plot(x2, val_acc, label='Validation Accuracy', linewidth=2)
+    plt.plot(x2, val_acc, label=f'{test_or_val} Accuracy', linewidth=2)
     plt.xlabel('Iteration', fontsize=12)
     plt.ylabel('Accuracy', fontsize=12)
-    plt.title('Training and Validation Accuracy Curve', fontsize=14)
+    plt.title(f'Training and {test_or_val} Accuracy Curve', fontsize=14)
     plt.legend(loc='lower right', fontsize=10)
     f = os.path.join(result_path, f'{model_name}_accuracy.pdf')
     plt.savefig(f, bbox_inches='tight')
