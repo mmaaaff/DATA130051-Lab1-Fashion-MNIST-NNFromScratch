@@ -148,7 +148,7 @@ def plot_figures(model_name):
     train_loss = result['train_loss_iter']
     train_acc = result['train_acc_iter']
 
-    epoch_len = 50000
+    epoch_len = len(X_train_mytensor)
     if result['val_interval'].item() == 0:  # If no complete val_loss_iter, use val_loss_epoch instead, but need alignment
         # result['batch_size_till_iter'] is in shape (num_train, 2)
         end_point = result['batch_size_till_iter'].T[1]

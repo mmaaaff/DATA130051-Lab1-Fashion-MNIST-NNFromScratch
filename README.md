@@ -42,12 +42,22 @@ The version should be based on you CUDA version. For CUDAToolkit installation, p
     > - The training code is train.py.
     > - To train a network, use shell scripts in train_mlp.sh and train_resnet.sh in scripts/.
 
+    ```bash
+    cd DATA130051-Lab1-DATA130011-PJ1
+    bash scripts/train_resnet.sh
+    ```
+
     ***
 
 2. **Testing**
 
     > - The testing code is test.py
     > - To test a network on test set, use shell scripts in test_mlp.sh and test_resnet.sh in scripts/.
+    
+    ```bash
+    cd DATA130051-Lab1-DATA130011-PJ1
+    bash scripts/test_resnet.sh
+    ```
 
     ***
 
@@ -130,11 +140,14 @@ If you want to explore the package further and build something else, here is a b
 - Train a classification model:
 
     ```Python
-    train_loss, val_loss, train_acc, val_acc, continued_train \
-        = MyDL.train(model, criterion, optimizer, train_data, 
-                     test_data, num_epochs=num_epochs, batch_size=256, 
-                     lambda_L2=lambda_L2, path='model_params', 
-                     continue_if_exists=continue_if_exists)
+    model_runner = MyDL.runner(model, model_name, optimizer, 
+                               criterion, batch_size=batch_size, 
+                               scheduler=scheduler)
+    result = model_runner.train(train_data, val_data, 
+                                num_epochs, lambda_L2=lambda_L2, 
+                                result_path=result_path, model_path=model_path, 
+                                continue_if_exists=continue_if_exists, 
+                                val_interval=args.val_interval)
     ```
 
     This will save the model's parameters in directory 'model_params'.
@@ -142,7 +155,7 @@ If you want to explore the package further and build something else, here is a b
 - Test a model:
 
     ```Python
-    MyDL.test(model, test_data)
+    model_runner.eval(model, test_data)
     ```
 
     This returns the accuracy of the model on test_data.

@@ -78,7 +78,7 @@ class runner():
                 if self.scheduler is not None:
                     self.scheduler.step()
                 if val_interval > 0 and ((i + 1) % val_interval == 0):
-                    val_loss, val_acc = self.eval(val_data, 2 * self.batch_size)  # Larger batch size for validation as it doesn't require backpropagation. Boosts speed.
+                    val_loss, val_acc = self.eval(val_data, 1 * self.batch_size)  # Larger batch size for validation as it doesn't require backpropagation. Boosts speed.
                     val_loss_iter.append(val_loss)
                     val_acc_iter.append(val_acc)
                 if (i + 1) % print_interval == 0:
@@ -88,7 +88,7 @@ class runner():
             train_loss_epoch.append(epoch_training_loss)
             train_acc_epoch.append(epoch_training_acc)
             print(f"Epoch {epoch + 1}/{num_epochs}. Training Loss:   {epoch_training_loss:.3f} \t Accuracy: {epoch_training_acc:.3f}")
-            val_loss, val_acc = self.eval(val_data, 2 * self.batch_size)
+            val_loss, val_acc = self.eval(val_data, 1 * self.batch_size)
             val_loss_epoch.append(val_loss)
             val_acc_epoch.append(val_acc)
             spaces = len(f'Epoch {epoch + 1}/{num_epochs}.') * ' '
@@ -104,7 +104,7 @@ class runner():
         self.save_result(result, result_path)
         return result
 
-    def eval(self, eval_data, batch_size):
+    def eval(self, eval_data, batch_size=128):
         self.model.eval()
         correct = 0
         loss = 0.0
