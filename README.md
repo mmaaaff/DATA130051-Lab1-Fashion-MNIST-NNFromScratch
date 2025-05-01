@@ -73,7 +73,7 @@ If you want to explore the package further and build something else, here is a b
   
     ```Python
     import MyDL
-    x = MyDL.MyTensor(data[, requires_grad=True])
+    x = MyDL.MyTensor(data, requires_grad=True)
     ```
 
     **data** should be a Numpy array.
